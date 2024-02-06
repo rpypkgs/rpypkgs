@@ -39,11 +39,16 @@
             sha256 = "sha256-7YINSBwuEsuPlCW9Euo0Rs/0Nc6z1n+6g+Wtk332fb4=";
           };
 
+          buildInputs = with pkgs; [ pkg-config libffi ];
+
           buildPhase = ''
             cp -r ${pypySrc}/{rpython,py} .
-            # mkdir -p rpython/_cache/
             chmod -R u+w rpython/
-            ${pkgs.pypy2}/bin/pypy rpython/bin/rpython example5.py
+
+            sed -i -e 's_, pytest__' rpython/conftest.py
+            sed -i -e '/hookimpl/d' rpython/conftest.py
+
+            ${pkgs.pypy2}/bin/pypy rpython/bin/rpython -Ojit example5.py
           '';
 
           installPhase = ''
