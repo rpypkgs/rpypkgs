@@ -28,6 +28,18 @@
           rev = "1fca5847f1902f76523d805ed291763b23733ccb";
           sha256 = "sha256-hKZ0KRY6cT4C/7boiBqtv28WjhAcVABuiqtJRsFNHDk=";
         };
+        rplySrc = pkgs.fetchFromGitHub {
+          owner = "alex";
+          repo = "rply";
+          rev = "v0.7.8";
+          sha256 = "sha256-mO/wcIsDIBjoxUsFvzftj5H5ziJijJcoyrUk52fcyE4=";
+        };
+        appdirsSrc = pkgs.fetchFromGitHub {
+          owner = "ActiveState";
+          repo = "appdirs";
+          rev = "1.4.4";
+          sha256 = "sha256-6hODshnyKp2zWAu/uaWTrlqje4Git34DNgEGFxb8EDU=";
+        };
         bf = pkgs.stdenv.mkDerivation {
           pname = "bf";
           version = "5";
@@ -59,9 +71,45 @@
             cp *.b $out/share/
           '';
         };
+        topaz = pkgs.stdenv.mkDerivation {
+          pname = "topaz";
+          version = "2022.6";
+
+          src = pkgs.fetchFromGitHub {
+            owner = "topazproject";
+            repo = "topaz";
+            rev = "059eac0ac884d677c3539e156e0ac528723d6238";
+            sha256 = "sha256-3Sx6gfRdM4tXKQjo5fCrL6YoOTObhnNC8PPJgAFTfcg=";
+          };
+
+          buildInputs = with pkgs; [ pkg-config libffi git ];
+
+          patches = [ ./topaz.patch ];
+
+          buildPhase = ''
+            cp -r ${pypySrc}/{rpython,py,pypy}/ .
+            chmod -R u+w rpython/
+
+            sed -i -e 's_, pytest__' rpython/conftest.py
+            sed -i -e '/hookimpl/d' rpython/conftest.py
+
+            cp -r ${rplySrc}/rply/ .
+            cp ${appdirsSrc}/appdirs.py .
+
+            # For rply, set cache to someplace writeable.
+            export XDG_CACHE_HOME=$TMPDIR
+
+            ${pkgs.pypy2}/bin/pypy rpython/bin/rpython -Ojit targettopaz.py
+          '';
+
+          installPhase = ''
+            mkdir -p $out/bin/
+            cp bin/topaz $out/bin/
+          '';
+        };
       in {
         packages = {
-          inherit bf;
+          inherit bf topaz;
           inherit (pkgs) pypy2 pypy27 pypy3 pypy38 pypy39;
           typhon = typhon.packages.${system}.typhonVm;
         };
