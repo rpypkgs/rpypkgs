@@ -40,6 +40,11 @@
           rev = "1.4.4";
           sha256 = "sha256-6hODshnyKp2zWAu/uaWTrlqje4Git34DNgEGFxb8EDU=";
         };
+        rsdlSrc = pkgs.fetchPypi {
+          pname = "rsdl";
+          version = "0.4.2";
+          sha256 = "sha256-SWApgO/lRMUOfx7wCJ6F6EezpNrzbh4CHCMI7y/Gi6U=";
+        };
         bf = pkgs.stdenv.mkDerivation {
           pname = "bf";
           version = "5";
@@ -107,10 +112,41 @@
             cp bin/topaz $out/bin/
           '';
         };
+        pygirl = pkgs.stdenv.mkDerivation {
+          pname = "pygirl";
+          version = "16.11";
+
+          src = pkgs.fetchFromGitHub {
+            owner = "Yardanico";
+            repo = "PyGirlGameboy";
+            rev = "674dcbed21d1c2912187c1e234d44990739383b4";
+            sha256 = "sha256-YEc7d98LwZpbkp4OV6J2iXWn/z/7RHL0dmnkkEU/agE=";
+          };
+
+          buildInputs = with pkgs; [ pkg-config libffi SDL SDL2 ];
+
+          buildPhase = ''
+            cp -r ${pypySrc}/{rpython,py,pypy}/ .
+            chmod -R u+w rpython/
+
+            sed -i -e 's_, pytest__' rpython/conftest.py
+            sed -i -e '/hookimpl/d' rpython/conftest.py
+
+            tar -zxf ${rsdlSrc}
+            mv rsdl-0.4.2/rsdl/ .
+
+            ${pkgs.pypy2}/bin/pypy rpython/bin/rpython pygirl/targetgbimplementation.py
+          '';
+
+          installPhase = ''
+            mkdir -p $out/bin/
+            cp targetgbimplementation-c $out/bin/pygirl
+          '';
+        };
       in {
         packages = {
-          inherit bf topaz;
           inherit (pkgs) pypy2 pypy27 pypy3 pypy38 pypy39;
+          inherit bf topaz pygirl;
           typhon = typhon.packages.${system}.typhonVm;
         };
         devShells.default = pkgs.mkShell {
