@@ -143,10 +143,40 @@
             cp targetgbimplementation-c $out/bin/pygirl
           '';
         };
+        pysom = pkgs.stdenv.mkDerivation {
+          pname = "pysom";
+          version = "23.10";
+
+          src = pkgs.fetchFromGitHub {
+            owner = "SOM-st";
+            repo = "PySOM";
+            rev = "b7acae57068a02418f334fd84a209ac485ba7b98";
+            sha256 = "sha256-OwYVO/o8mXSwntMPZNaGXlrCFp/iZEO5q7Gj4DAq6bY=";
+          };
+
+          buildInputs = with pkgs; [ pkg-config libffi ];
+
+          buildPhase = ''
+            cp -r ${pypySrc}/{rpython,py,pypy}/ .
+            chmod -R u+w rpython/
+
+            sed -i -e 's_, pytest__' rpython/conftest.py
+            sed -i -e '/hookimpl/d' rpython/conftest.py
+
+            # Build instructions from upstream translate.sh.
+            SOM_INTERP=AST ${pkgs.pypy2}/bin/pypy rpython/bin/rpython src/main_rpython.py
+            SOM_INTERP=BC ${pkgs.pypy2}/bin/pypy rpython/bin/rpython src/main_rpython.py
+          '';
+
+          installPhase = ''
+            mkdir -p $out/bin/
+            cp som-* $out/bin/
+          '';
+        };
       in {
         packages = {
           inherit (pkgs) pypy2 pypy27 pypy3 pypy38 pypy39;
-          inherit bf topaz pygirl;
+          inherit bf topaz pygirl pysom;
           typhon = typhon.packages.${system}.typhonVm;
         };
         devShells.default = pkgs.mkShell {
