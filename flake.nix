@@ -47,9 +47,13 @@
         };
         mkRPythonDerivation = {
           entrypoint, binName,
+          buildInputs ? [],
+          optLevel ? "jit",
           binInstallName ? binName
         }: attrs: pkgs.stdenv.mkDerivation ({
-          buildInputs = with pkgs; [ pkg-config libffi ];
+          buildInputs = builtins.concatLists [
+            buildInputs (with pkgs; [ pkg-config libffi ])
+          ];
 
           postPatch = ''
             cp -r ${pypySrc}/{rpython,py} .
@@ -62,7 +66,10 @@
           buildPhase = ''
             runHook preBuild
 
-            ${pkgs.pypy2}/bin/pypy rpython/bin/rpython -Ojit ${entrypoint}
+            # For rply, set cache to someplace writeable.
+            export XDG_CACHE_HOME=$TMPDIR
+
+            ${pkgs.pypy2}/bin/pypy rpython/bin/rpython -O${optLevel} ${entrypoint}
 
             runHook postBuild
           '';
@@ -96,7 +103,10 @@
             cp *.b $out/share/
           '';
         };
-        topaz = pkgs.stdenv.mkDerivation {
+        topaz = mkRPythonDerivation {
+          entrypoint = "targettopaz.py";
+          binName = "bin/topaz";
+        } {
           pname = "topaz";
           version = "2022.6";
 
@@ -107,32 +117,22 @@
             sha256 = "sha256-3Sx6gfRdM4tXKQjo5fCrL6YoOTObhnNC8PPJgAFTfcg=";
           };
 
-          buildInputs = with pkgs; [ pkg-config libffi git ];
+          nativeBuildInputs = [ pkgs.git ];
 
           patches = [ ./topaz.patch ];
 
-          buildPhase = ''
-            cp -r ${pypySrc}/{rpython,py,pypy}/ .
-            chmod -R u+w rpython/
-
-            sed -i -e 's_, pytest__' rpython/conftest.py
-            sed -i -e '/hookimpl/d' rpython/conftest.py
-
+          prePatch = ''
             cp -r ${rplySrc}/rply/ .
             cp ${appdirsSrc}/appdirs.py .
-
-            # For rply, set cache to someplace writeable.
-            export XDG_CACHE_HOME=$TMPDIR
-
-            ${pkgs.pypy2}/bin/pypy rpython/bin/rpython -Ojit targettopaz.py
-          '';
-
-          installPhase = ''
-            mkdir -p $out/bin/
-            cp bin/topaz $out/bin/
           '';
         };
-        pygirl = pkgs.stdenv.mkDerivation {
+        pygirl = mkRPythonDerivation {
+          entrypoint = "pygirl/targetgbimplementation.py";
+          binName = "targetgbimplementation-c";
+          binInstallName = "pygirl";
+          optLevel = "2";
+          buildInputs = with pkgs; [ SDL SDL2 ];
+        } {
           pname = "pygirl";
           version = "16.11";
 
@@ -143,27 +143,16 @@
             sha256 = "sha256-YEc7d98LwZpbkp4OV6J2iXWn/z/7RHL0dmnkkEU/agE=";
           };
 
-          buildInputs = with pkgs; [ pkg-config libffi SDL SDL2 ];
-
-          buildPhase = ''
-            cp -r ${pypySrc}/{rpython,py,pypy}/ .
-            chmod -R u+w rpython/
-
-            sed -i -e 's_, pytest__' rpython/conftest.py
-            sed -i -e '/hookimpl/d' rpython/conftest.py
-
+          prePatch = ''
             tar -zxf ${rsdlSrc}
             mv rsdl-0.4.2/rsdl/ .
-
-            ${pkgs.pypy2}/bin/pypy rpython/bin/rpython pygirl/targetgbimplementation.py
-          '';
-
-          installPhase = ''
-            mkdir -p $out/bin/
-            cp targetgbimplementation-c $out/bin/pygirl
           '';
         };
-        pysom = pkgs.stdenv.mkDerivation {
+        pysom = mkRPythonDerivation {
+          entrypoint = "src/main_rpython.py";
+          # XXX hardcoded
+          binName = "som-ast-jit";
+        } {
           pname = "pysom";
           version = "23.10";
 
@@ -174,24 +163,8 @@
             sha256 = "sha256-OwYVO/o8mXSwntMPZNaGXlrCFp/iZEO5q7Gj4DAq6bY=";
           };
 
-          buildInputs = with pkgs; [ pkg-config libffi ];
-
-          buildPhase = ''
-            cp -r ${pypySrc}/{rpython,py,pypy}/ .
-            chmod -R u+w rpython/
-
-            sed -i -e 's_, pytest__' rpython/conftest.py
-            sed -i -e '/hookimpl/d' rpython/conftest.py
-
-            # Build instructions from upstream translate.sh.
-            SOM_INTERP=AST ${pkgs.pypy2}/bin/pypy rpython/bin/rpython src/main_rpython.py
-            SOM_INTERP=BC ${pkgs.pypy2}/bin/pypy rpython/bin/rpython src/main_rpython.py
-          '';
-
-          installPhase = ''
-            mkdir -p $out/bin/
-            cp som-* $out/bin/
-          '';
+          # XXX could also be "BC"
+          SOM_INTERP = "AST";
         };
       in {
         packages = {
