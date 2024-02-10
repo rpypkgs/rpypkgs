@@ -45,7 +45,42 @@
           version = "0.4.2";
           sha256 = "sha256-SWApgO/lRMUOfx7wCJ6F6EezpNrzbh4CHCMI7y/Gi6U=";
         };
-        bf = pkgs.stdenv.mkDerivation {
+        mkRPythonDerivation = {
+          entrypoint, binName,
+          binInstallName ? binName
+        }: attrs: pkgs.stdenv.mkDerivation ({
+          buildInputs = with pkgs; [ pkg-config libffi ];
+
+          postPatch = ''
+            cp -r ${pypySrc}/{rpython,py} .
+            chmod -R u+w rpython/
+
+            sed -i -e 's_, pytest__' rpython/conftest.py
+            sed -i -e '/hookimpl/d' rpython/conftest.py
+          '';
+
+          buildPhase = ''
+            runHook preBuild
+
+            ${pkgs.pypy2}/bin/pypy rpython/bin/rpython -Ojit ${entrypoint}
+
+            runHook postBuild
+          '';
+
+          installPhase = ''
+            runHook preInstall
+
+            mkdir -p $out/bin/
+            cp ${binName} $out/bin/${binInstallName}
+
+            runHook postInstall
+          '';
+        } // attrs);
+        bf = mkRPythonDerivation {
+          entrypoint = "example5.py";
+          binName = "example5-c";
+          binInstallName = "bf";
+        } {
           pname = "bf";
           version = "5";
 
@@ -56,22 +91,7 @@
             sha256 = "sha256-7YINSBwuEsuPlCW9Euo0Rs/0Nc6z1n+6g+Wtk332fb4=";
           };
 
-          buildInputs = with pkgs; [ pkg-config libffi ];
-
-          buildPhase = ''
-            cp -r ${pypySrc}/{rpython,py} .
-            chmod -R u+w rpython/
-
-            sed -i -e 's_, pytest__' rpython/conftest.py
-            sed -i -e '/hookimpl/d' rpython/conftest.py
-
-            ${pkgs.pypy2}/bin/pypy rpython/bin/rpython -Ojit example5.py
-          '';
-
-          installPhase = ''
-            mkdir -p $out/bin/
-            cp example5-c $out/bin/bf
-
+          postInstall = ''
             mkdir -p $out/share/
             cp *.b $out/share/
           '';
