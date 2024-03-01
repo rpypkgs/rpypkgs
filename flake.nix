@@ -39,35 +39,61 @@
             "python-2.7.18.6"
           ];
         };
+
         pypySrc = pkgs.fetchFromGitHub {
           owner = "pypy";
           repo = "pypy";
           rev = "1fca5847f1902f76523d805ed291763b23733ccb";
           sha256 = "sha256-hKZ0KRY6cT4C/7boiBqtv28WjhAcVABuiqtJRsFNHDk=";
         };
+
+        # Simple setup hook: at the end of patchPhase, unpack a RPython library
+        # into the build directory, next to rpython/, so that it can be
+        # imported during buildPhase.
+        mkUnpackHook = name: action: pkgs.writeShellScript "unpack-${name}" ''
+          ${name}UnpackRPythonLib() {
+            ${action}
+          }
+          postPatchHooks+=(${name}UnpackRPythonLib)
+        '';
+
         rplySrc = pkgs.fetchFromGitHub {
           owner = "alex";
           repo = "rply";
           rev = "v0.7.8";
           sha256 = "sha256-mO/wcIsDIBjoxUsFvzftj5H5ziJijJcoyrUk52fcyE4=";
         };
+        rply = mkUnpackHook "rply" ''
+          cp -r ${rplySrc}/rply/ .
+        '';
+
         appdirsSrc = pkgs.fetchFromGitHub {
           owner = "ActiveState";
           repo = "appdirs";
           rev = "1.4.4";
           sha256 = "sha256-6hODshnyKp2zWAu/uaWTrlqje4Git34DNgEGFxb8EDU=";
         };
+        appdirs = mkUnpackHook "appdirs" ''
+          cp ${appdirsSrc}/appdirs.py .
+        '';
+
         rsdlSrc = pkgs.fetchPypi {
           pname = "rsdl";
           version = "0.4.2";
           sha256 = "sha256-SWApgO/lRMUOfx7wCJ6F6EezpNrzbh4CHCMI7y/Gi6U=";
         };
+        rsdl = mkUnpackHook "rsdl" ''
+          tar -k -zxf ${rsdlSrc}
+          mv rsdl-0.4.2/rsdl/ .
+        '';
+
         mkRPythonDerivation = {
           entrypoint, binName,
-          buildInputs ? [],
+          nativeBuildInputs ? [], buildInputs ? [],
           optLevel ? "jit",
           binInstallName ? binName
         }: attrs: pkgs.stdenv.mkDerivation ({
+          inherit nativeBuildInputs;
           buildInputs = builtins.concatLists [
             buildInputs (with pkgs; [ pkg-config libffi ])
           ];
@@ -83,7 +109,7 @@
           buildPhase = ''
             runHook preBuild
 
-            # For rply, set cache to someplace writeable.
+            # For rply, set XDG cache to someplace writeable.
             export XDG_CACHE_HOME=$TMPDIR
 
             ${pkgs.pypy2}/bin/pypy rpython/bin/rpython -O${optLevel} ${entrypoint}
@@ -125,6 +151,7 @@
         topaz = mkRPythonDerivation {
           entrypoint = "targettopaz.py";
           binName = "bin/topaz";
+          nativeBuildInputs = [ pkgs.git appdirs rply ];
         } {
           pname = "topaz";
           version = "2022.6";
@@ -136,17 +163,10 @@
             sha256 = "sha256-3Sx6gfRdM4tXKQjo5fCrL6YoOTObhnNC8PPJgAFTfcg=";
           };
 
-          nativeBuildInputs = [ pkgs.git ];
-
           patches = [ ./topaz.patch ];
 
-          prePatch = ''
-            cp -r ${rplySrc}/rply/ .
-            cp ${appdirsSrc}/appdirs.py .
-          '';
-
           meta = {
-            description = "A high performance ruby, written in RPython ";
+            description = "A high performance ruby, written in RPython";
             license = pkgs.lib.licenses.bsd3;
           };
         };
@@ -155,6 +175,7 @@
           binName = "targetgbimplementation-c";
           binInstallName = "pygirl";
           optLevel = "2";
+          nativeBuildInputs = [ rsdl ];
           buildInputs = with pkgs; [ SDL SDL2 ];
         } {
           pname = "pygirl";
@@ -166,11 +187,6 @@
             rev = "674dcbed21d1c2912187c1e234d44990739383b4";
             sha256 = "sha256-YEc7d98LwZpbkp4OV6J2iXWn/z/7RHL0dmnkkEU/agE=";
           };
-
-          prePatch = ''
-            tar -zxf ${rsdlSrc}
-            mv rsdl-0.4.2/rsdl/ .
-          '';
 
           # XXX shipped without license, originally same license as PyPy
           meta = {
