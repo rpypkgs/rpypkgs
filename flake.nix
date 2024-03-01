@@ -148,6 +148,12 @@
             mv rsdl-0.4.2/rsdl/ .
           '';
         };
+        coreLib = pkgs.fetchFromGitHub {
+          owner = "SOM-st";
+          repo = "SOM";
+          rev = "79f33c8a2376ce25288fe5b382a0e79f8f529472";
+          sha256 = "sha256-R8MKNaZgOyZct8BCcK/ILQtyBFLv5PvtyLsrB0Dh5uc=";
+        };
         pysom = mkRPythonDerivation {
           entrypoint = "src/main_rpython.py";
           # XXX hardcoded
@@ -165,6 +171,16 @@
 
           # XXX could also be "BC"
           SOM_INTERP = "AST";
+
+          doCheck = true;
+          checkPhase = ''
+            ./som-ast-jit -cp ${coreLib}/Smalltalk ${coreLib}/TestSuite/TestHarness.som
+          '';
+
+          postInstall = ''
+            mkdir -p $out/share/
+            cp -H -r ${coreLib}/{Smalltalk,Examples,TestSuite} $out/share/
+          '';
         };
       in {
         packages = {
