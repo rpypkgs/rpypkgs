@@ -14,10 +14,27 @@
   };
 
   outputs = { self, nixpkgs, flake-utils, typhon }:
-    flake-utils.lib.eachDefaultSystem (system:
+    let
+      # RPython's list of supported systems: https://www.pypy.org/features.html
+      # Tested systems have had at least one package built and manually
+      # confirmed to work; they do not need to support every interpreter. ~ C.
+      testedSystems = [
+        "x86_64-linux"
+      ];
+      untestedSystems = [
+        "i686-linux" "i686-windows" "i686-freebsd13" "i686-openbsd"
+        "x86_64-darwin" "x86_64-freebsd13" "x86_64-openbsd"
+        "armv6l-linux" "armv7l-linux"
+        "aarch64-linux" "aarch64-darwin"
+        "powerpc64-linux"
+        "powerpc64le-linux"
+        "s390x-linux"
+      ];
+    in flake-utils.lib.eachSystem (testedSystems ++ untestedSystems) (system:
       let
         pkgs = import nixpkgs {
           inherit system;
+          # Required for bootstrapping.
           config.permittedInsecurePackages = [
             "python-2.7.18.6"
           ];
