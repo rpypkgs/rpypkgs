@@ -102,6 +102,8 @@
             mkdir -p $out/share/
             cp *.b $out/share/
           '';
+
+          # XXX unknown license; copyright Andrew Brown
         };
         topaz = mkRPythonDerivation {
           entrypoint = "targettopaz.py";
@@ -125,6 +127,11 @@
             cp -r ${rplySrc}/rply/ .
             cp ${appdirsSrc}/appdirs.py .
           '';
+
+          meta = {
+            description = "A high performance ruby, written in RPython ";
+            license = pkgs.lib.licenses.bsd3;
+          };
         };
         pygirl = mkRPythonDerivation {
           entrypoint = "pygirl/targetgbimplementation.py";
@@ -147,6 +154,12 @@
             tar -zxf ${rsdlSrc}
             mv rsdl-0.4.2/rsdl/ .
           '';
+
+          # XXX shipped without license, originally same license as PyPy
+          meta = {
+            description = "GameBoy emulator written in RPython";
+            license = pkgs.lib.licenses.mit;
+          };
         };
         coreLib = pkgs.fetchFromGitHub {
           owner = "SOM-st";
@@ -181,6 +194,11 @@
             mkdir -p $out/share/
             cp -H -r ${coreLib}/{Smalltalk,Examples,TestSuite} $out/share/
           '';
+
+          meta = {
+            description = "The Simple Object Machine Smalltalk implemented in Python";
+            license = pkgs.lib.licenses.mit;
+          };
         };
       in {
         packages = {
