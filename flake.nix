@@ -260,7 +260,7 @@
           typhon = typhon.packages.${system}.typhonVm;
         };
         devShells.default = pkgs.mkShell {
-          packages = [];
+          packages = [ pkgs.cachix ];
         };
       }
     );
