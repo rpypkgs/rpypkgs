@@ -233,10 +233,30 @@
             license = pkgs.lib.licenses.mit;
           };
         };
+        pyrolog = mkRPythonDerivation {
+          entrypoint = "targetprologstandalone.py";
+          binName = "pyrolog-c";
+          binInstallName = "pyrolog";
+        } {
+          pname = "pyrolog";
+          version = "2013";
+
+          src = pkgs.fetchFromGitHub {
+            owner = "cosmoharrigan";
+            repo = "pyrolog";
+            rev = "b250e3ec0109049dea09419f2ad6a8ed14d92ff0";
+            sha256 = "sha256-GBhh83f0FI33Bba2tIAo9HbveTlgczQINBHqMZ5a2sA=";
+          };
+
+          meta = {
+            description = "A Prolog interpreter written in Python using the PyPy translator toolchain";
+            license = pkgs.lib.licenses.mit;
+          };
+        };
       in {
         packages = {
           inherit (pkgs) pypy2 pypy27 pypy3 pypy38 pypy39;
-          inherit bf topaz pygirl pysom;
+          inherit bf topaz pygirl pysom pyrolog;
           typhon = typhon.packages.${system}.typhonVm;
         };
         devShells.default = pkgs.mkShell {

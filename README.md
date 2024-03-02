@@ -7,6 +7,7 @@ Language | Attribute
 Brainfuck | `bf`
 Game Boy LR35902 | `pygirl`
 Monte | `typhon`
+Prolog | `pyrolog`
 Python 2.7 | `pypy27`
 Python 3.8 | `pypy38`
 Python 3.9 | `pypy39`
