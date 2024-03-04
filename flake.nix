@@ -253,10 +253,34 @@
             license = pkgs.lib.licenses.mit;
           };
         };
+        hippyvm = mkRPythonDerivation {
+          entrypoint = "targethippy.py";
+          binName = "hippy-c";
+          nativeBuildInputs = [ pkgs.mysql-client pkgs.pcre.dev pkgs.rhash pkgs.bzip2.dev rply appdirs ];
+        } {
+          pname = "hippyvm";
+          version = "2015";
+
+          prePatch = ''
+            sed -ie 's,from rpython.rlib.rfloat import isnan,from math import isnan,' hippy/objects/*.py
+          '';
+
+          src = pkgs.fetchFromGitHub {
+            owner = "hippyvm";
+            repo = "hippyvm";
+            rev = "2ae35b80023dbc4f0735e1388528d28ed7b234fd";
+            sha256 = "sha256-0aIJTpFdk86HSwDXZyP5ahfyuMcMfljoSrvsceYX4i0=";
+          };
+
+          meta = {
+            description = "an implementation of the PHP language in RPython";
+            license = pkgs.lib.licenses.mit;
+          };
+        };
       in {
         packages = {
           inherit (pkgs) pypy2 pypy27 pypy3 pypy38 pypy39;
-          inherit bf topaz pygirl pysom pyrolog;
+          inherit bf hippyvm topaz pygirl pysom pyrolog;
           typhon = typhon.packages.${system}.typhonVm;
         };
         devShells.default = pkgs.mkShell {
