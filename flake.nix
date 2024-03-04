@@ -20,12 +20,13 @@
       # confirmed to work; they do not need to support every interpreter. ~ C.
       testedSystems = [
         "x86_64-linux"
+        "aarch64-linux"
       ];
       untestedSystems = [
         "i686-linux" "i686-windows" "i686-freebsd13" "i686-openbsd"
         "x86_64-darwin" "x86_64-freebsd13" "x86_64-openbsd"
         "armv6l-linux" "armv7l-linux"
-        "aarch64-linux" "aarch64-darwin"
+        "aarch64-darwin"
         "powerpc64-linux"
         "powerpc64le-linux"
         "s390x-linux"
@@ -284,7 +285,7 @@
           typhon = typhon.packages.${system}.typhonVm;
         };
         devShells.default = pkgs.mkShell {
-          packages = [ pkgs.cachix ];
+          packages = if pkgs.cachix.meta.broken then [] else [ pkgs.cachix ];
         };
       }
     );
