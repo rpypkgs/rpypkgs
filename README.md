@@ -5,6 +5,7 @@ This flake offers implementations of the following languages:
 Language | Attribute
 ---|---
 Brainfuck | `bf`
+DIVSPL | `divspl`
 Game Boy LR35902 | `pygirl`
 Monte | `typhon`
 Prolog | `pyrolog`

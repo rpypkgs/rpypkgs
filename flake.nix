@@ -127,6 +127,25 @@
             runHook postInstall
           '';
         } // attrs);
+        divspl = mkRPythonDerivation {
+          entrypoint = "divspl.py";
+          binName = "divspl-c";
+          binInstallName = "divspl";
+          optLevel = "2";
+        } {
+          pname = "divspl";
+          version = "1";
+
+          src = ./divspl;
+
+          doCheck = true;
+          checkPhase = "./divspl-c fizzbuzz.divspl";
+
+          postInstall = ''
+            mkdir -p $out/share/
+            cp *.divspl $out/share/
+          '';
+        };
         bf = mkRPythonDerivation {
           entrypoint = "example5.py";
           binName = "example5-c";
@@ -281,7 +300,7 @@
       in {
         packages = {
           inherit (pkgs) pypy2 pypy27 pypy3 pypy38 pypy39;
-          inherit bf hippyvm topaz pygirl pysom pyrolog;
+          inherit bf divspl hippyvm topaz pygirl pysom pyrolog;
           typhon = typhon.packages.${system}.typhonVm;
         };
         devShells.default = pkgs.mkShell {
