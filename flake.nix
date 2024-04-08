@@ -131,7 +131,6 @@
           entrypoint = "divspl.py";
           binName = "divspl-c";
           binInstallName = "divspl";
-          optLevel = "2";
         } {
           pname = "divspl";
           version = "1";
