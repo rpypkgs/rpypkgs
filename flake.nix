@@ -88,6 +88,16 @@
           mv rsdl-0.4.2/rsdl/ .
         '';
 
+        macropySrc = pkgs.fetchFromGitHub {
+          owner = "lihaoyi";
+          repo = "macropy";
+          rev = "13993ccb08df21a0d63b091dbaae50b9dbb3fe3e";
+          sha256 = "12496896c823h0849vnslbdgmn6z9mhfkckqa8sb8k9qqab7pyyl";
+        };
+        macropy = mkUnpackHook "macropy" ''
+          cp -r ${macropySrc}/macropy/ .
+        '';
+
         mkRPythonDerivation = {
           entrypoint, binName,
           nativeBuildInputs ? [], buildInputs ? [],
@@ -304,6 +314,9 @@
           inherit (pkgs) pypy2 pypy27 pypy3 pypy38 pypy39;
           inherit bf divspl hippyvm topaz pygirl pysom pyrolog;
           typhon = typhon.packages.${system}.typhonVm;
+          rpythonPackages = {
+            inherit appdirs macropy rply rsdl; 
+          };
         };
         devShells.default = pkgs.mkShell {
           packages = if pkgs.cachix.meta.broken then [] else [ pkgs.cachix ];
