@@ -297,6 +297,9 @@
           };
         };
       in {
+        lib = {
+          inherit mkUnpackHook mkRPythonDerivation;
+        };
         packages = {
           inherit (pkgs) pypy2 pypy27 pypy3 pypy38 pypy39;
           inherit bf divspl hippyvm topaz pygirl pysom pyrolog;
