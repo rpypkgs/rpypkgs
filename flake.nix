@@ -4,16 +4,9 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/release-23.05";
     flake-utils.url = "github:numtide/flake-utils";
-    typhon = {
-      url = "github:monte-language/typhon";
-      inputs = {
-        nixpkgs.follows = "nixpkgs";
-        flake-utils.follows = "flake-utils";
-      };
-    };
   };
 
-  outputs = { self, nixpkgs, flake-utils, typhon }:
+  outputs = { self, nixpkgs, flake-utils }:
     let
       # RPython's list of supported systems: https://www.pypy.org/features.html
       # Tested systems have had at least one package built and manually
@@ -313,7 +306,6 @@
         packages = {
           inherit (pkgs) pypy2 pypy27 pypy3 pypy38 pypy39;
           inherit bf divspl hippyvm topaz pygirl pysom pyrolog;
-          typhon = typhon.packages.${system}.typhonVm;
           rpythonPackages = {
             inherit appdirs macropy rply rsdl; 
           };
