@@ -159,7 +159,7 @@
         pypy2 = mkRPythonDerivation {
           entrypoint = "pypy/goal/targetpypystandalone.py";
           binName = "pypy-c";
-          optLevel = "2";
+          optLevel = "jit";
           nativeBuildInputs = [ pycparser ];
           transFlags = "--translationmodules";
           # buildInputs = with pkgs; [ bzip2 expat gdbm ncurses openssl sqlite xz zlib ];
@@ -191,6 +191,7 @@
           entrypoint = "divspl.py";
           binName = "divspl-c";
           binInstallName = "divspl";
+          py2 = "${pypy2}/bin/pypy";
         } {
           pname = "divspl";
           version = "1";
