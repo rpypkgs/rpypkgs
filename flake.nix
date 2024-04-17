@@ -34,6 +34,20 @@
           ];
         };
 
+        # Bootstrap CPython 2.7 for compiling PyPy for Python 2.7
+        cpython2 = pkgs.callPackage ./bootstrap/default.nix {
+          sourceVersion = {
+            major = "2";
+            minor = "7";
+            patch = "18";
+            suffix = ".8"; # ActiveState's Python 2 extended support
+          };
+          hash = "sha256-HUOzu3uJbtd+3GbmGD35KOk/CDlwL4S7hi9jJGRFiqI=";
+          inherit (pkgs.darwin) configd;
+          reproducibleBuild = true;
+          rebuildBytecode = false;
+        };
+
         pypySrc = pkgs.fetchFromGitHub {
           owner = "pypy";
           repo = "pypy";
@@ -91,11 +105,23 @@
           cp -r ${macropySrc}/macropy/ .
         '';
 
+        pycparserSrc = pkgs.fetchPypi {
+          pname = "pycparser";
+          version = "2.21";
+          sha256 = "sha256-5kT97BL3hy+GxY/3kNpFYhixD4Y5cCSVFtYKXqyncgY=";
+        };
+        pycparser = mkUnpackHook "pycparser" ''
+          tar -k -zxf ${pycparserSrc}
+          mv pycparser-2.21/pycparser/ .
+        '';
+
         mkRPythonDerivation = {
           entrypoint, binName,
           nativeBuildInputs ? [], buildInputs ? [],
           optLevel ? "jit",
-          binInstallName ? binName
+          binInstallName ? binName,
+          py2 ? "${pkgs.pypy2}/bin/pypy",
+          transFlags ? "",
         }: attrs: pkgs.stdenv.mkDerivation ({
           inherit nativeBuildInputs;
           buildInputs = builtins.concatLists [
@@ -116,7 +142,7 @@
             # For rply, set XDG cache to someplace writeable.
             export XDG_CACHE_HOME=$TMPDIR
 
-            ${pkgs.pypy2}/bin/pypy rpython/bin/rpython -O${optLevel} ${entrypoint}
+            ${py2} rpython/bin/rpython -O${optLevel} ${entrypoint} ${transFlags}
 
             runHook postBuild
           '';
@@ -130,6 +156,37 @@
             runHook postInstall
           '';
         } // attrs);
+        pypy2 = mkRPythonDerivation {
+          entrypoint = "pypy/goal/targetpypystandalone.py";
+          binName = "pypy-c";
+          optLevel = "2";
+          nativeBuildInputs = [ pycparser ];
+          transFlags = "--translationmodules";
+          # buildInputs = with pkgs; [ bzip2 expat gdbm ncurses openssl sqlite xz zlib ];
+          buildInputs = with pkgs; [ ncurses zlib ];
+          py2 = "${cpython2}/bin/python";
+        } {
+          pname = "pypy2";
+          version = "7.3.15";
+
+          src = pypySrc;
+
+          # PyPy has a hardcoded stdlib search routine, so the tree has to look
+          # something like this, including symlinks.
+          postInstall = ''
+            mkdir -p $out/pypy-c/
+            cp -R {include,lib_pypy,lib-python} $out/pypy-c/
+            mv $out/bin/pypy-c $out/pypy-c/
+            ln -s $out/pypy-c/pypy-c $out/bin/pypy
+
+            mkdir -p $out/lib/
+            cp libpypy-c${pkgs.stdenv.hostPlatform.extensions.sharedLibrary} $out/lib/
+            ln -s $out/pypy-c/lib-python/2.7 $out/lib/pypy2.7
+
+            mkdir -p $out/include/
+            ln -s $out/pypy-c/include $out/include/pypy2.7
+          '';
+        };
         divspl = mkRPythonDerivation {
           entrypoint = "divspl.py";
           binName = "divspl-c";
@@ -306,12 +363,18 @@
         packages = {
           inherit (pkgs) pypy2 pypy27 pypy3 pypy38 pypy39;
           inherit bf divspl hippyvm topaz pygirl pysom pyrolog;
+          # Testing only!
+          bootpy = pypy2;
+          # XXX need to rescope these instead of statically providing them here
+          # nix is angy that this isn't a derivation
           rpythonPackages = {
-            inherit appdirs macropy rply rsdl; 
+            inherit appdirs macropy pycparser rply rsdl;
           };
         };
         devShells.default = pkgs.mkShell {
-          packages = if pkgs.cachix.meta.broken then [] else [ pkgs.cachix ];
+          packages = builtins.filter (p: !p.meta.broken) (with pkgs; [
+            cachix nix-tree
+          ]);
         };
       }
     );
