@@ -26,15 +26,9 @@
       ];
     in flake-utils.lib.eachSystem (testedSystems ++ untestedSystems) (system:
       let
-        pkgs = import nixpkgs {
-          inherit system;
-          # Required for bootstrapping.
-          config.permittedInsecurePackages = [
-            "python-2.7.18.6"
-          ];
-        };
+	pkgs = import nixpkgs { inherit system; };
 
-        # Bootstrap CPython 2.7 for compiling PyPy for Python 2.7
+        # Phase 0: Bootstrap CPython 2.7 for compiling PyPy for Python 2.7.
         cpython2 = pkgs.callPackage ./bootstrap/default.nix {
           sourceVersion = {
             major = "2";
@@ -48,6 +42,9 @@
           rebuildBytecode = false;
         };
 
+        # Libraries written for RPython.
+        libs = pkgs.callPackage ./libs.nix {};
+
         pypySrc = pkgs.fetchFromGitHub {
           owner = "pypy";
           repo = "pypy";
@@ -55,77 +52,21 @@
           sha256 = "sha256-hKZ0KRY6cT4C/7boiBqtv28WjhAcVABuiqtJRsFNHDk=";
         };
 
-        # Simple setup hook: at the end of patchPhase, unpack a RPython library
-        # into the build directory, next to rpython/, so that it can be
-        # imported during buildPhase.
-        mkUnpackHook = name: action: pkgs.writeShellScript "unpack-${name}" ''
-          ${name}UnpackRPythonLib() {
-            ${action}
-          }
-          postPatchHooks+=(${name}UnpackRPythonLib)
-        '';
-
-        rplySrc = pkgs.fetchFromGitHub {
-          owner = "alex";
-          repo = "rply";
-          rev = "v0.7.8";
-          sha256 = "sha256-mO/wcIsDIBjoxUsFvzftj5H5ziJijJcoyrUk52fcyE4=";
-        };
-        rply = mkUnpackHook "rply" ''
-          cp -r ${rplySrc}/rply/ .
-        '';
-
-        appdirsSrc = pkgs.fetchFromGitHub {
-          owner = "ActiveState";
-          repo = "appdirs";
-          rev = "1.4.4";
-          sha256 = "sha256-6hODshnyKp2zWAu/uaWTrlqje4Git34DNgEGFxb8EDU=";
-        };
-        appdirs = mkUnpackHook "appdirs" ''
-          cp ${appdirsSrc}/appdirs.py .
-        '';
-
-        rsdlSrc = pkgs.fetchPypi {
-          pname = "rsdl";
-          version = "0.4.2";
-          sha256 = "sha256-SWApgO/lRMUOfx7wCJ6F6EezpNrzbh4CHCMI7y/Gi6U=";
-        };
-        rsdl = mkUnpackHook "rsdl" ''
-          tar -k -zxf ${rsdlSrc}
-          mv rsdl-0.4.2/rsdl/ .
-        '';
-
-        macropySrc = pkgs.fetchFromGitHub {
-          owner = "lihaoyi";
-          repo = "macropy";
-          rev = "13993ccb08df21a0d63b091dbaae50b9dbb3fe3e";
-          sha256 = "12496896c823h0849vnslbdgmn6z9mhfkckqa8sb8k9qqab7pyyl";
-        };
-        macropy = mkUnpackHook "macropy" ''
-          cp -r ${macropySrc}/macropy/ .
-        '';
-
-        pycparserSrc = pkgs.fetchPypi {
-          pname = "pycparser";
-          version = "2.21";
-          sha256 = "sha256-5kT97BL3hy+GxY/3kNpFYhixD4Y5cCSVFtYKXqyncgY=";
-        };
-        pycparser = mkUnpackHook "pycparser" ''
-          tar -k -zxf ${pycparserSrc}
-          mv pycparser-2.21/pycparser/ .
-        '';
-
-        mkRPythonDerivation = {
+        # Generic builder for RPython. Takes three levels of configuration.
+        mkRPythonMaker = { py2 }: {
           entrypoint, binName,
-          nativeBuildInputs ? [], buildInputs ? [],
+          withLibs ? (ls: []),
           optLevel ? "jit",
           binInstallName ? binName,
-          py2 ? "${pkgs.pypy2}/bin/pypy",
           transFlags ? "",
-        }: attrs: pkgs.stdenv.mkDerivation ({
-          inherit nativeBuildInputs;
+        }: attrs: pkgs.stdenv.mkDerivation (attrs // {
+          nativeBuildInputs = builtins.concatLists [
+            (attrs.nativeBuildInputs or [])
+            (withLibs libs)
+          ];
           buildInputs = builtins.concatLists [
-            buildInputs (with pkgs; [ pkg-config libffi ])
+            (attrs.buildInputs or [])
+            (with pkgs; [ pkg-config libffi ])
           ];
 
           postPatch = ''
@@ -155,21 +96,24 @@
 
             runHook postInstall
           '';
-        } // attrs);
-        pypy2 = mkRPythonDerivation {
+        });
+
+        # Phase 1: Build PyPy for Python 2.7 using CPython.
+        mkRPythonBootstrap = mkRPythonMaker {
+          py2 = "${cpython2}/bin/python";
+        };
+        pypy2Minimal = mkRPythonBootstrap {
           entrypoint = "pypy/goal/targetpypystandalone.py";
           binName = "pypy-c";
           optLevel = "jit";
-          nativeBuildInputs = [ pycparser ];
+          withLibs = ls: [ ls.pycparser ];
           transFlags = "--translationmodules";
-          # buildInputs = with pkgs; [ bzip2 expat gdbm ncurses openssl sqlite xz zlib ];
-          buildInputs = with pkgs; [ ncurses zlib ];
-          py2 = "${cpython2}/bin/python";
         } {
           pname = "pypy2";
           version = "7.3.15";
 
           src = pypySrc;
+          buildInputs = with pkgs; [ ncurses zlib ];
 
           # PyPy has a hardcoded stdlib search routine, so the tree has to look
           # something like this, including symlinks.
@@ -187,11 +131,15 @@
             ln -s $out/pypy-c/include $out/include/pypy2.7
           '';
         };
+
+        # Phase 2: Build everything else using PyPy.
+        mkRPythonDerivation = mkRPythonMaker {
+          py2 = "${pypy2Minimal}/bin/pypy";
+        };
         divspl = mkRPythonDerivation {
           entrypoint = "divspl.py";
           binName = "divspl-c";
           binInstallName = "divspl";
-          py2 = "${pypy2}/bin/pypy";
         } {
           pname = "divspl";
           version = "1";
@@ -228,10 +176,38 @@
 
           # XXX unknown license; copyright Andrew Brown
         };
+        pypy2 = mkRPythonDerivation {
+          entrypoint = "pypy/goal/targetpypystandalone.py";
+          binName = "pypy-c";
+          optLevel = "jit";
+          withLibs = ls: [ ls.pycparser ];
+        } {
+          pname = "pypy2";
+          version = "7.3.15";
+
+          src = pypySrc;
+          buildInputs = with pkgs; [ bzip2 expat gdbm ncurses openssl sqlite xz zlib ];
+
+          # PyPy has a hardcoded stdlib search routine, so the tree has to look
+          # something like this, including symlinks.
+          postInstall = ''
+            mkdir -p $out/pypy-c/
+            cp -R {include,lib_pypy,lib-python} $out/pypy-c/
+            mv $out/bin/pypy-c $out/pypy-c/
+            ln -s $out/pypy-c/pypy-c $out/bin/pypy
+
+            mkdir -p $out/lib/
+            cp libpypy-c${pkgs.stdenv.hostPlatform.extensions.sharedLibrary} $out/lib/
+            ln -s $out/pypy-c/lib-python/2.7 $out/lib/pypy2.7
+
+            mkdir -p $out/include/
+            ln -s $out/pypy-c/include $out/include/pypy2.7
+          '';
+        };
         topaz = mkRPythonDerivation {
           entrypoint = "targettopaz.py";
           binName = "bin/topaz";
-          nativeBuildInputs = [ pkgs.git appdirs rply ];
+          withLibs = ls: [ ls.appdirs ls.rply ];
         } {
           pname = "topaz";
           version = "2022.6";
@@ -242,6 +218,8 @@
             rev = "059eac0ac884d677c3539e156e0ac528723d6238";
             sha256 = "sha256-3Sx6gfRdM4tXKQjo5fCrL6YoOTObhnNC8PPJgAFTfcg=";
           };
+
+          nativeBuildInputs = [ pkgs.git ];
 
           patches = [ ./topaz.patch ];
 
@@ -255,8 +233,7 @@
           binName = "targetgbimplementation-c";
           binInstallName = "pygirl";
           optLevel = "2";
-          nativeBuildInputs = [ rsdl ];
-          buildInputs = with pkgs; [ SDL SDL2 ];
+          withLibs = ls: [ ls.rsdl ];
         } {
           pname = "pygirl";
           version = "16.11";
@@ -267,6 +244,8 @@
             rev = "674dcbed21d1c2912187c1e234d44990739383b4";
             sha256 = "sha256-YEc7d98LwZpbkp4OV6J2iXWn/z/7RHL0dmnkkEU/agE=";
           };
+
+          buildInputs = with pkgs; [ SDL SDL2 ];
 
           # XXX shipped without license, originally same license as PyPy
           meta = {
@@ -336,14 +315,10 @@
         hippyvm = mkRPythonDerivation {
           entrypoint = "targethippy.py";
           binName = "hippy-c";
-          nativeBuildInputs = [ pkgs.mysql-client pkgs.pcre.dev pkgs.rhash pkgs.bzip2.dev rply appdirs ];
+          withLibs = ls: [ ls.appdirs ls.rply ];
         } {
           pname = "hippyvm";
           version = "2015";
-
-          prePatch = ''
-            sed -ie 's,from rpython.rlib.rfloat import isnan,from math import isnan,' hippy/objects/*.py
-          '';
 
           src = pkgs.fetchFromGitHub {
             owner = "hippyvm";
@@ -352,25 +327,23 @@
             sha256 = "sha256-0aIJTpFdk86HSwDXZyP5ahfyuMcMfljoSrvsceYX4i0=";
           };
 
+          nativeBuildInputs = with pkgs; [ mysql-client pcre.dev rhash bzip2.dev ];
+
+          prePatch = ''
+            sed -ie 's,from rpython.rlib.rfloat import isnan,from math import isnan,' hippy/objects/*.py
+          '';
+
           meta = {
             description = "an implementation of the PHP language in RPython";
             license = pkgs.lib.licenses.mit;
           };
         };
       in {
-        lib = {
-          inherit mkUnpackHook mkRPythonDerivation;
-        };
+        checks = { inherit divspl; };
+        lib = { inherit mkRPythonDerivation; };
         packages = {
-          inherit (pkgs) pypy2 pypy27 pypy3 pypy38 pypy39;
-          inherit bf divspl hippyvm topaz pygirl pysom pyrolog;
-          # Testing only!
-          bootpy = pypy2;
-          # XXX need to rescope these instead of statically providing them here
-          # nix is angy that this isn't a derivation
-          rpythonPackages = {
-            inherit appdirs macropy pycparser rply rsdl;
-          };
+          inherit (pkgs) pypy3 pypy38 pypy39;
+          inherit bf divspl hippyvm topaz pygirl pypy2 pysom pyrolog;
         };
         devShells.default = pkgs.mkShell {
           packages = builtins.filter (p: !p.meta.broken) (with pkgs; [
