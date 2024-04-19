@@ -154,27 +154,31 @@
             cp *.divspl $out/share/
           '';
         };
+        bfShare = pkgs.fetchFromGitHub {
+          owner = "MG-K";
+          repo = "pypy-tutorial-ko";
+          rev = "20dd2e807014c75b53d6ed152fe38cb7af171301";
+          sha256 = "sha256-7YINSBwuEsuPlCW9Euo0Rs/0Nc6z1n+6g+Wtk332fb4=";
+        };
         bf = mkRPythonDerivation {
-          entrypoint = "example5.py";
-          binName = "example5-c";
+          entrypoint = "bf.py";
+          binName = "bf-c";
           binInstallName = "bf";
         } {
           pname = "bf";
-          version = "5";
+          version = "2024";
 
-          src = pkgs.fetchFromGitHub {
-            owner = "MG-K";
-            repo = "pypy-tutorial-ko";
-            rev = "20dd2e807014c75b53d6ed152fe38cb7af171301";
-            sha256 = "sha256-7YINSBwuEsuPlCW9Euo0Rs/0Nc6z1n+6g+Wtk332fb4=";
-          };
+          src = ./bf;
 
           postInstall = ''
             mkdir -p $out/share/
-            cp *.b $out/share/
+            cp ${bfShare}/*.b $out/share/
           '';
 
-          # XXX unknown license; copyright Andrew Brown
+          meta = {
+            description = "Brainfuck interpreter written in RPython";
+            license = pkgs.lib.licenses.mit;
+          };
         };
         pypy2 = mkRPythonDerivation {
           entrypoint = "pypy/goal/targetpypystandalone.py";
