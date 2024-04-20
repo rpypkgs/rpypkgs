@@ -8,6 +8,12 @@ import sys
 from rpython.jit.codewriter.policy import JitPolicy
 from rpython.rlib.jit import JitDriver, purefunction
 
+def opEq(ops1, ops2):
+    if len(ops1) != len(ops2): return False
+    for i, op in enumerate(ops1):
+        if op is not ops2[i]: return False
+    return True
+
 def printableProgram(program): return program.asStr()
 
 jitdriver = JitDriver(greens=['program'], reds=['position', 'tape'],
@@ -35,15 +41,23 @@ class Add(Op):
     def runOn(self, tape, position):
         tape[position] += self.imm
         return position
-Inc = Add(1)
-Dec = Add(-1)
+addCache = {}
+def add(imm):
+    if imm not in addCache: addCache[imm] = Add(imm)
+    return addCache[imm]
+Inc = add(1)
+Dec = add(-1)
 class Shift(Op):
     _immutable_fields_ = "width",
     def __init__(self, width): self.width = width
     def asStr(self): return "shift(%d)" % self.width
     def runOn(self, tape, position): return position + self.width
-Left = Shift(-1)
-Right = Shift(1)
+shiftCache = {}
+def shift(width):
+    if width not in shiftCache: shiftCache[width] = Shift(width)
+    return shiftCache[width]
+Left = shift(-1)
+Right = shift(1)
 class _Zero(Op):
     def asStr(self): return "0"
     def runOn(self, tape, position):
@@ -60,6 +74,11 @@ class ZeroScaleAdd(Op):
         tape[position + self.offset] += tape[position] * self.scale
         tape[position] = 0
         return position
+scaleAddCache = {}
+def scaleAdd(offset, scale):
+    if (offset, scale) not in scaleAddCache:
+        scaleAddCache[offset, scale] = ZeroScaleAdd(offset, scale)
+    return scaleAddCache[offset, scale]
 class Loop(Op):
     _immutable_fields_ = "ops[*]",
     def __init__(self, ops): self.ops = ops
@@ -71,15 +90,22 @@ class Loop(Op):
                                       position=position, tape=tape)
             for op in self.ops: position = op.runOn(tape, position)
         return position
+loopCache = []
+def loop(ops):
+    for l in loopCache:
+        if opEq(ops, l.ops): return l
+    rv = Loop(ops)
+    loopCache.append(rv)
+    return rv
 
 def peep(ops):
     rv = []
     temp = ops[0]
     for op in ops[1:]:
         if isinstance(temp, Shift) and isinstance(op, Shift):
-            temp = Shift(temp.width + op.width)
+            temp = shift(temp.width + op.width)
         elif isinstance(temp, Add) and isinstance(op, Add):
-            temp = Add(temp.imm + op.imm)
+            temp = add(temp.imm + op.imm)
         else:
             rv.append(temp)
             temp = op
@@ -98,8 +124,8 @@ def loopish(ops):
     elif (len(ops) == 4 and
           isConstAdd(ops[0], -1) and isinstance(ops[2], Add) and
           oppositeShifts(ops[1], ops[3])):
-        return ZeroScaleAdd(ops[1].width, ops[2].imm)
-    return Loop(ops[:])
+        return scaleAdd(ops[1].width, ops[2].imm)
+    return loop(ops[:])
 
 parseTable = {
     ',': Input, '.': Output,
