@@ -14,9 +14,8 @@ def opEq(ops1, ops2):
         if op is not ops2[i]: return False
     return True
 
-def printableProgram(program): return program.asStr()
-
-jitdriver = JitDriver(greens=['program'], reds=['position', 'tape'],
+def printableProgram(pc, loop): return loop.ops[pc].asStr()
+jitdriver = JitDriver(greens=['pc', 'loop'], reds=['position', 'tape'],
                       get_printable_location=printableProgram)
 
 class Op(object):
@@ -86,9 +85,12 @@ class Loop(Op):
         return '[' + '; '.join([op.asStr() for op in self.ops]) + ']'
     def runOn(self, tape, position):
         while tape[position]:
-            jitdriver.jit_merge_point(program=self,
-                                      position=position, tape=tape)
-            for op in self.ops: position = op.runOn(tape, position)
+            i = 0
+            while i < len(self.ops):
+                jitdriver.jit_merge_point(pc=i, loop=self,
+                                          position=position, tape=tape)
+                position = self.ops[i].runOn(tape, position)
+                i += 1
         return position
 loopCache = []
 def loop(ops):
@@ -106,6 +108,7 @@ def peep(ops):
             temp = shift(temp.width + op.width)
         elif isinstance(temp, Add) and isinstance(op, Add):
             temp = add(temp.imm + op.imm)
+        elif isinstance(temp, Add) and op is Zero: temp = Zero
         else:
             rv.append(temp)
             temp = op
