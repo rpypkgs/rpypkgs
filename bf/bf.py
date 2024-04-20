@@ -14,7 +14,7 @@ jitdriver = JitDriver(greens=['program'], reds=['position', 'tape'],
                       get_printable_location=printableProgram)
 
 class Op(object):
-    _immutable_fields_ = "width",
+    _immutable_fields_ = "width", "imm"
 
 class _Input(Op):
     def asStr(self): return ','
@@ -50,12 +50,14 @@ class _Zero(Op):
         tape[position] = 0
         return position
 Zero = _Zero()
-class ZeroAdd(Op):
-    _immutable_fields_ = "offset",
-    def __init__(self, offset): self.offset = offset
-    def asStr(self): return "zeroadd(%d)" % self.offset
+class ZeroScaleAdd(Op):
+    _immutable_fields_ = "offset", "scale"
+    def __init__(self, offset, scale):
+        self.offset = offset
+        self.scale = scale
+    def asStr(self): return "0scaleadd(%d, %d)" % (self.offset, self.scale)
     def runOn(self, tape, position):
-        tape[position + self.offset] += tape[position]
+        tape[position + self.offset] += tape[position] * self.scale
         tape[position] = 0
         return position
 class Loop(Op):
@@ -94,9 +96,9 @@ def loopish(ops):
     if len(ops) == 1 and isConstAdd(ops[0], -1):
         return Zero
     elif (len(ops) == 4 and
-          isConstAdd(ops[0], -1) and isConstAdd(ops[2], 1) and
+          isConstAdd(ops[0], -1) and isinstance(ops[2], Add) and
           oppositeShifts(ops[1], ops[3])):
-        return ZeroAdd(ops[1].width)
+        return ZeroScaleAdd(ops[1].width, ops[2].imm)
     return Loop(ops[:])
 
 parseTable = {
@@ -126,7 +128,7 @@ def entryPoint(argv):
         path = argv[3]
     else: path = argv[1]
     with open(path) as handle: program = parse(handle.read())
-    tape = [0] * cells
+    tape = bytearray("\x00" * cells)
     position = 0
     for op in program: position = op.runOn(tape, position)
     return 0
