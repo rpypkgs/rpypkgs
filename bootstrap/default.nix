@@ -8,7 +8,6 @@
 , openssl
 , readline
 , sqlite
-, tcl ? null, tk ? null, tix ? null, libX11 ? null, x11Support ? false
 , zlib
 , self
 , configd, coreutils
@@ -36,10 +35,6 @@
 , stripTests ? false
 , pythonAttr ? "python${sourceVersion.major}${sourceVersion.minor}"
 }:
-
-assert x11Support -> tcl != null
-                  && tk != null
-                  && libX11 != null;
 
 assert lib.assertMsg (enableOptimizations -> (!stdenv.cc.isClang))
   "Optimizations with clang are not supported. configure: error: llvm-profdata is required for a --enable-optimizations build but could not be found.";
@@ -136,9 +131,6 @@ let
         revert = true;
         hash = "sha256-Lp5fGlcfJJ6p6vKmcLckJiAA2AZz4prjFE0aMEJxotw=";
       })
-    ] ++ lib.optionals (x11Support && stdenv.isDarwin) [
-      ./use-correct-tcl-tk-on-darwin.patch
-
     ] ++ lib.optionals stdenv.isDarwin [
       # Fix darwin build https://bugs.python.org/issue34027
       ./darwin-libutil.patch
@@ -238,7 +230,6 @@ let
   buildInputs =
     lib.optional (stdenv ? cc && stdenv.cc.libc != null) stdenv.cc.libc ++
     [ bzip2 openssl zlib libffi expat db gdbm ncurses sqlite readline ]
-    ++ lib.optionals x11Support [ tcl tk libX11 ]
     ++ lib.optional (stdenv.isDarwin && configd != null) configd;
   nativeBuildInputs =
     [ autoreconfHook ]
@@ -271,10 +262,6 @@ in with passthru; stdenv.mkDerivation ({
     DETERMINISTIC_BUILD = 1;
 
     setupHook = python-setup-hook sitePackages;
-
-    postPatch = lib.optionalString (x11Support && (tix != null)) ''
-          substituteInPlace "Lib/lib-tk/Tix.py" --replace "os.environ.get('TIX_LIBRARY')" "os.environ.get('TIX_LIBRARY') or '${tix}/lib'"
-    '';
 
     postInstall =
       ''
