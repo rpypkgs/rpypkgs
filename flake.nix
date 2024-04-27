@@ -79,13 +79,14 @@
             sed -i -e 's,raise ImportError,pass;,' rpython/rlib/rsre/rsre_constants.py
           '';
 
+          # https://github.com/pypy/pypy/blob/main/rpython/translator/goal/translate.py
           buildPhase = ''
             runHook preBuild
 
             # For rply, set XDG cache to someplace writeable.
             export XDG_CACHE_HOME=$TMPDIR
 
-            ${py2} rpython/bin/rpython -O${optLevel} ${entrypoint} ${transFlags}
+            ${py2} rpython/bin/rpython --batch -O${optLevel} ${entrypoint} ${transFlags}
 
             runHook postBuild
           '';
@@ -182,7 +183,7 @@
             license = pkgs.lib.licenses.mit;
           };
         };
-        regiux = mkRPythonBootstrap {
+        regiux = mkRPythonDerivation {
           entrypoint = "main.py";
           binName = "main-c";
           binInstallName = "rix";
