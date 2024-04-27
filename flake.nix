@@ -38,8 +38,6 @@
           };
           hash = "sha256-HUOzu3uJbtd+3GbmGD35KOk/CDlwL4S7hi9jJGRFiqI=";
           inherit (pkgs.darwin) configd;
-          reproducibleBuild = true;
-          rebuildBytecode = false;
         };
 
         # Libraries written for RPython.
@@ -348,6 +346,7 @@
         packages = {
           inherit (pkgs) pypy3 pypy38 pypy39;
           inherit bf divspl hippyvm topaz pygirl pypy2 pysom pyrolog;
+          inherit pypy2Minimal;
         };
         devShells.default = pkgs.mkShell {
           packages = builtins.filter (p: !p.meta.broken) (with pkgs; [

@@ -25,28 +25,12 @@
 , sourceVersion
 , hash
 , static ? stdenv.hostPlatform.isStatic
-, stripBytecode ? reproducibleBuild
-, rebuildBytecode ? true
-, reproducibleBuild ? false
-, enableOptimizations ? false
 , strip2to3 ? false
 , stripConfig ? false
 , stripIdlelib ? false
 , stripTests ? false
 , pythonAttr ? "python${sourceVersion.major}${sourceVersion.minor}"
 }:
-
-assert lib.assertMsg (enableOptimizations -> (!stdenv.cc.isClang))
-  "Optimizations with clang are not supported. configure: error: llvm-profdata is required for a --enable-optimizations build but could not be found.";
-
-assert lib.assertMsg (reproducibleBuild -> stripBytecode)
-  "Deterministic builds require stripping bytecode.";
-
-assert lib.assertMsg (reproducibleBuild -> (!enableOptimizations))
-  "Deterministic builds are not achieved when optimizations are enabled.";
-
-assert lib.assertMsg (reproducibleBuild -> (!rebuildBytecode))
-  "Deterministic builds are not achieved when (default unoptimized) bytecode is created.";
 
 let
   buildPackages = pkgsBuildHost;
@@ -84,7 +68,7 @@ let
     inherit hash;
   };
 
-  hasDistutilsCxxPatch = !(stdenv.cc.isGNU or false);
+  hasDistutilsCxxPatch = !stdenv.cc.isGNU;
   patches =
     [ # Look in C_INCLUDE_PATH and LIBRARY_PATH for stuff.
       ./search-path.patch
@@ -185,9 +169,7 @@ let
         --replace 'os.popen(comm)' 'os.popen("${coreutils}/bin/nproc")'
     '';
 
-  configureFlags = lib.optionals enableOptimizations [
-    "--enable-optimizations"
-  ] ++ lib.optionals (!static) [
+  configureFlags = lib.optionals (!static) [
     "--enable-shared"
   ] ++ [
     "--with-threads"
@@ -286,17 +268,9 @@ in with passthru; stdenv.mkDerivation ({
         # Determinism: Windows installers were not deterministic.
         # We're also not interested in building Windows installers.
         find "$out" -name 'wininst*.exe' | xargs -r rm -f
-      '' + lib.optionalString stripBytecode ''
         # Determinism: deterministic bytecode
         # First we delete all old bytecode.
         find $out -name "*.pyc" -delete
-        '' + lib.optionalString rebuildBytecode ''
-        # We build 3 levels of optimized bytecode. Note the default level, without optimizations,
-        # is not reproducible yet. https://bugs.python.org/issue29708
-        # Not creating bytecode will result in a large performance loss however, so we do build it.
-        find $out -name "*.py" | ${pythonOnBuildForHostInterpreter} -m compileall -q -f -x "lib2to3" -i -
-        find $out -name "*.py" | ${pythonOnBuildForHostInterpreter} -O  -m compileall -q -f -x "lib2to3" -i -
-        find $out -name "*.py" | ${pythonOnBuildForHostInterpreter} -OO -m compileall -q -f -x "lib2to3" -i -
       '' + lib.optionalString stdenv.hostPlatform.isCygwin ''
         cp libpython2.7.dll.a $out/lib
       '';
