@@ -7,6 +7,7 @@ Language | Attribute
 Brainfuck | `bf`
 DIVSPL | `divspl`
 Game Boy LR35902 | `pygirl`
+Nix | `regiux`
 Prolog | `pyrolog`
 Python 2.7 | `pypy27`
 Python 3.8 | `pypy38`
