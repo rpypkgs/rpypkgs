@@ -26,7 +26,7 @@
       ];
     in flake-utils.lib.eachSystem (testedSystems ++ untestedSystems) (system:
       let
-	pkgs = import nixpkgs { inherit system; };
+        pkgs = import nixpkgs { inherit system; };
 
         # Phase 0: Bootstrap CPython 2.7 for compiling PyPy for Python 2.7.
         cpython2 = pkgs.callPackage ./bootstrap/default.nix {
@@ -67,12 +67,16 @@
             (with pkgs; [ pkg-config libffi ])
           ];
 
+          # conftest patches are required to build without pytest.
+          # sre patches are required to build without pypy/ src.
           postPatch = ''
             cp -r ${pypySrc}/{rpython,py} .
             chmod -R u+w rpython/
 
             sed -i -e 's_, pytest__' rpython/conftest.py
             sed -i -e '/hookimpl/d' rpython/conftest.py
+
+            sed -i -e 's,raise ImportError,pass;,' rpython/rlib/rsre/rsre_constants.py
           '';
 
           buildPhase = ''
@@ -176,6 +180,23 @@
           meta = {
             description = "Brainfuck interpreter written in RPython";
             license = pkgs.lib.licenses.mit;
+          };
+        };
+        regiux = mkRPythonBootstrap {
+          entrypoint = "main.py";
+          binName = "main-c";
+          binInstallName = "rix";
+          optLevel = "2";
+          withLibs = ls: [ ls.appdirs ls.rply ];
+        } {
+          pname = "regiux";
+          version = "2024";
+
+          src = ./regiux;
+
+          meta = {
+            description = "Nix parser";
+            license = pkgs.lib.licenses.agpl3;
           };
         };
         pypy2 = mkRPythonDerivation {
@@ -345,7 +366,9 @@
         lib = { inherit mkRPythonDerivation; };
         packages = {
           inherit (pkgs) pypy3 pypy38 pypy39;
-          inherit bf divspl hippyvm topaz pygirl pypy2 pysom pyrolog;
+          inherit bf divspl hippyvm topaz pygirl pypy2 pysom pyrolog regiux;
+          # Export bootstrap PyPy. It is just as fast as standard PyPy, but
+          # missing some parts of the stdlib.
           inherit pypy2Minimal;
         };
         devShells.default = pkgs.mkShell {
