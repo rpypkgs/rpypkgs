@@ -8,6 +8,7 @@ Brainfuck | `bf`
 DIVSPL | `divspl`
 LR35902 "Game Boy" | `pygirl`
 Nix | `regiux`
+Pixie | `pixie`
 Prolog | `pyrolog`
 Python 2.7 | `pypy2`
 Python 3.10 | `pypy3`

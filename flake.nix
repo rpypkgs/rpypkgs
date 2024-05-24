@@ -52,11 +52,24 @@
 
         # Generic builder for RPython. Takes three levels of configuration.
         mkRPythonMaker = { py2 }: {
+          # The Python module to start at, and the resulting binary name.
           entrypoint, binName,
-          withLibs ? (ls: []),
-          optLevel ? "jit",
+          # What name to install the binary as.
           binInstallName ? binName,
+          # Pure-Python libraries to be "installed" for Python 2.7 prior to
+          # translation. See libs.nix for available libraries.
+          withLibs ? (ls: []),
+          # Whether to build a JIT, as well as some other optimizations.
+          # Usually should be "jit" (JIT on) or "2" (JIT off).
+          optLevel ? "jit",
+          # Extra flags for the translator, e.g. to enable stackless.
           transFlags ? "",
+          # Extra flags for the interpreter, e.g. to enable builtin modules.
+          interpFlags ? "",
+          # Whether translation depends on anything from PyPy's source code
+          # (pypy.*) which isn't available in RPython (rpython.*) or Py (py.*).
+          # The latter packages are always available.
+          usesPyPyCode ? false,
         }: attrs: let
           buildInputs = builtins.concatLists [
             (attrs.buildInputs or [])
@@ -86,6 +99,7 @@
           # sre patches are required to build without pypy/ src.
           postPatch = ''
             cp -r ${pypySrc}/{rpython,py} .
+            ${pkgs.lib.optionalString usesPyPyCode "cp -r ${pypySrc}/pypy ."}
             chmod -R u+w rpython/
 
             sed -i -e 's_, pytest__' rpython/conftest.py
@@ -107,7 +121,8 @@
               --batch \
               --make-jobs="$NIX_BUILD_CORES" \
               -O${optLevel} \
-              ${entrypoint} ${transFlags}
+              ${transFlags} \
+              ${entrypoint} ${interpFlags}
 
             runHook postBuild
           '';
@@ -139,8 +154,30 @@
 
         # Phase 2: Build everything else using PyPy.
         mkRPythonDerivation = mkRPythonMaker {
-          py2 = "${pypy2Minimal}/bin/pypy";
+          # py2 = "${pypy2Minimal}/bin/pypy";
+          py2 = "${cpython2}/bin/python";
         };
+
+        pypy2 = mkPyPy {
+          inherit pkgs;
+          rpyMaker = mkRPythonDerivation;
+          pyVersion = "2.7";
+          version = "7.3.15";
+          binName = "pypy-c";
+          src = pypySrc;
+        };
+        pypy3 = mkPyPy rec {
+          inherit pkgs;
+          rpyMaker = mkRPythonDerivation;
+          binName = "pypy3-c";
+          pyVersion = "3.10";
+          version = "7.3.15";
+          src = pkgs.fetchurl {
+            url = "https://downloads.python.org/pypy/pypy3.10-v${version}-src.tar.bz2";
+            hash = "sha256-g3YiEws2YDoYk4mb2fUplhqOSlbJ62cmjXLd+JIMlXk=";
+          };
+        };
+
         divspl = mkRPythonDerivation {
           entrypoint = "divspl.py";
           binName = "divspl-c";
@@ -185,6 +222,35 @@
             license = pkgs.lib.licenses.mit;
           };
         };
+        pixie = mkRPythonDerivation {
+          entrypoint = "target.py";
+          binName = "pixie-vm";
+          optLevel = "2";
+          transFlags = "--continuation";
+        } {
+          pname = "pixie";
+          version = "2017";
+
+          src = pkgs.fetchFromGitHub {
+            owner = "pixie-lang";
+            repo = "pixie";
+            rev = "d76adb041a4968906bf22575fee7a572596e5796";
+            sha256 = "sha256-NO3S1p1NI28Jq4D8+n8ZYK4KZTltN8m1r8CZ91JjAtM=";
+          };
+
+          # Force a newer Unicode DB.
+          # Patch out old FFI code.
+          prePatch = ''
+            sed -ie 's,6_2_0,9_0_0,g' pixie/vm/libs/string.py
+            sed -ie '/@as_var(u"pixie.ffi", u"ffi-prep-callback")/d' pixie/vm/libs/ffi.py
+          '';
+
+          meta = {
+            broken = true;
+            description = "A small fast native Lisp with 'magical' powers";
+            license = pkgs.lib.licenses.gpl3;
+          };
+        };
         regiux = mkRPythonDerivation {
           entrypoint = "main.py";
           binName = "main-c";
@@ -202,29 +268,11 @@
             license = pkgs.lib.licenses.agpl3;
           };
         };
-        pypy2 = mkPyPy {
-          inherit pkgs;
-          rpyMaker = mkRPythonDerivation;
-          pyVersion = "2.7";
-          version = "7.3.15";
-          binName = "pypy-c";
-          src = pypySrc;
-        };
-        pypy3 = mkPyPy rec {
-          inherit pkgs;
-          rpyMaker = mkRPythonDerivation;
-          binName = "pypy3-c";
-          pyVersion = "3.10";
-          version = "7.3.15";
-          src = pkgs.fetchurl {
-            url = "https://downloads.python.org/pypy/pypy3.10-v${version}-src.tar.bz2";
-            hash = "sha256-g3YiEws2YDoYk4mb2fUplhqOSlbJ62cmjXLd+JIMlXk=";
-          };
-        };
         topaz = mkRPythonDerivation {
           entrypoint = "targettopaz.py";
           binName = "bin/topaz";
           withLibs = ls: [ ls.appdirs ls.rply ];
+          usesPyPyCode = true;
         } {
           pname = "topaz";
           version = "2022.6";
@@ -241,6 +289,7 @@
           patches = [ ./topaz.patch ];
 
           meta = {
+            broken = true;
             description = "A high performance ruby, written in RPython";
             license = pkgs.lib.licenses.bsd3;
           };
@@ -359,7 +408,7 @@
         checks = { inherit divspl; };
         lib = { inherit mkRPythonDerivation; };
         packages = {
-          inherit bf divspl hippyvm topaz pygirl pypy2 pypy3 pysom pyrolog regiux;
+          inherit bf divspl hippyvm pixie pygirl pypy2 pypy3 pysom pyrolog regiux topaz;
           # Export bootstrap PyPy. It is just as fast as standard PyPy, but
           # missing some parts of the stdlib.
           inherit pypy2Minimal;

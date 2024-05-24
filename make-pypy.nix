@@ -6,7 +6,7 @@ rpyMaker {
   entrypoint = "pypy/goal/targetpypystandalone.py";
   optLevel = "jit";
   withLibs = ls: [ ls.pycparser ];
-  transFlags = pkgs.lib.optionalString minimal "--translationmodules";
+  interpFlags = pkgs.lib.optionalString minimal "--translationmodules";
 } {
   pname = if minimal then "pypy-${pyVersion}-minimal" else "pypy-${pyVersion}";
 
