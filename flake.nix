@@ -57,15 +57,30 @@
           optLevel ? "jit",
           binInstallName ? binName,
           transFlags ? "",
-        }: attrs: pkgs.stdenv.mkDerivation (attrs // {
+        }: attrs: let
+          buildInputs = builtins.concatLists [
+            (attrs.buildInputs or [])
+            ([ pkgs.libffi ])
+            (pkgs.lib.optionals pkgs.stdenv.isDarwin (with pkgs; [ libunwind Security ]))
+          ];
+        in pkgs.stdenv.mkDerivation (attrs // {
+          # Ensure that RPython binaries don't have Python runtime dependencies.
+          # disallowedReferences = [ py2 ];
+          # To that end, don't automatically add references to Python modules!
+          # dontPatchShebangs = true;
+
+          inherit buildInputs;
           nativeBuildInputs = builtins.concatLists [
             (attrs.nativeBuildInputs or [])
             (withLibs libs)
+            ([ pkgs.pkg-config ])
           ];
-          buildInputs = builtins.concatLists [
-            (attrs.buildInputs or [])
-            (with pkgs; [ pkg-config libffi ])
-          ];
+
+          # Set up library search paths for translation.
+          C_INCLUDE_PATH = pkgs.lib.makeSearchPathOutput "dev" "include" buildInputs;
+          LIBRARY_PATH = pkgs.lib.makeLibraryPath buildInputs;
+          LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath
+            (builtins.filter (x : x.outPath != pkgs.stdenv.cc.libc.outPath or "") buildInputs);
 
           # conftest patches are required to build without pytest.
           # sre patches are required to build without pypy/ src.
@@ -80,13 +95,19 @@
           '';
 
           # https://github.com/pypy/pypy/blob/main/rpython/translator/goal/translate.py
+          # For rply, set XDG cache to someplace writeable.
+          # Don't run debugger on failure.
+          # Use as many cores as Nix tells us to use.
           buildPhase = ''
             runHook preBuild
 
-            # For rply, set XDG cache to someplace writeable.
             export XDG_CACHE_HOME=$TMPDIR
 
-            ${py2} rpython/bin/rpython --batch -O${optLevel} ${entrypoint} ${transFlags}
+            ${py2} rpython/bin/rpython \
+              --batch \
+              --make-jobs="$NIX_BUILD_CORES" \
+              -O${optLevel} \
+              ${entrypoint} ${transFlags}
 
             runHook postBuild
           '';
@@ -105,34 +126,15 @@
         mkRPythonBootstrap = mkRPythonMaker {
           py2 = "${cpython2}/bin/python";
         };
-        pypy2Minimal = mkRPythonBootstrap {
-          entrypoint = "pypy/goal/targetpypystandalone.py";
-          binName = "pypy-c";
-          optLevel = "jit";
-          withLibs = ls: [ ls.pycparser ];
-          transFlags = "--translationmodules";
-        } {
-          pname = "pypy2";
+        mkPyPy = import ./make-pypy.nix;
+        pypy2Minimal = mkPyPy {
+          inherit pkgs;
+          rpyMaker = mkRPythonBootstrap;
+          pyVersion = "2.7";
           version = "7.3.15";
-
+          binName = "pypy-c";
+          minimal = true;
           src = pypySrc;
-          buildInputs = with pkgs; [ ncurses zlib ];
-
-          # PyPy has a hardcoded stdlib search routine, so the tree has to look
-          # something like this, including symlinks.
-          postInstall = ''
-            mkdir -p $out/pypy-c/
-            cp -R {include,lib_pypy,lib-python} $out/pypy-c/
-            mv $out/bin/pypy-c $out/pypy-c/
-            ln -s $out/pypy-c/pypy-c $out/bin/pypy
-
-            mkdir -p $out/lib/
-            cp libpypy-c${pkgs.stdenv.hostPlatform.extensions.sharedLibrary} $out/lib/
-            ln -s $out/pypy-c/lib-python/2.7 $out/lib/pypy2.7
-
-            mkdir -p $out/include/
-            ln -s $out/pypy-c/include $out/include/pypy2.7
-          '';
         };
 
         # Phase 2: Build everything else using PyPy.
@@ -200,33 +202,24 @@
             license = pkgs.lib.licenses.agpl3;
           };
         };
-        pypy2 = mkRPythonDerivation {
-          entrypoint = "pypy/goal/targetpypystandalone.py";
-          binName = "pypy-c";
-          optLevel = "jit";
-          withLibs = ls: [ ls.pycparser ];
-        } {
-          pname = "pypy2";
+        pypy2 = mkPyPy {
+          inherit pkgs;
+          rpyMaker = mkRPythonDerivation;
+          pyVersion = "2.7";
           version = "7.3.15";
-
+          binName = "pypy-c";
           src = pypySrc;
-          buildInputs = with pkgs; [ bzip2 expat gdbm ncurses openssl sqlite xz zlib ];
-
-          # PyPy has a hardcoded stdlib search routine, so the tree has to look
-          # something like this, including symlinks.
-          postInstall = ''
-            mkdir -p $out/pypy-c/
-            cp -R {include,lib_pypy,lib-python} $out/pypy-c/
-            mv $out/bin/pypy-c $out/pypy-c/
-            ln -s $out/pypy-c/pypy-c $out/bin/pypy
-
-            mkdir -p $out/lib/
-            cp libpypy-c${pkgs.stdenv.hostPlatform.extensions.sharedLibrary} $out/lib/
-            ln -s $out/pypy-c/lib-python/2.7 $out/lib/pypy2.7
-
-            mkdir -p $out/include/
-            ln -s $out/pypy-c/include $out/include/pypy2.7
-          '';
+        };
+        pypy3 = mkPyPy rec {
+          inherit pkgs;
+          rpyMaker = mkRPythonDerivation;
+          binName = "pypy3-c";
+          pyVersion = "3.10";
+          version = "7.3.15";
+          src = pkgs.fetchurl {
+            url = "https://downloads.python.org/pypy/pypy3.10-v${version}-src.tar.bz2";
+            hash = "sha256-g3YiEws2YDoYk4mb2fUplhqOSlbJ62cmjXLd+JIMlXk=";
+          };
         };
         topaz = mkRPythonDerivation {
           entrypoint = "targettopaz.py";
@@ -366,8 +359,7 @@
         checks = { inherit divspl; };
         lib = { inherit mkRPythonDerivation; };
         packages = {
-          inherit (pkgs) pypy3 pypy38 pypy39;
-          inherit bf divspl hippyvm topaz pygirl pypy2 pysom pyrolog regiux;
+          inherit bf divspl hippyvm topaz pygirl pypy2 pypy3 pysom pyrolog regiux;
           # Export bootstrap PyPy. It is just as fast as standard PyPy, but
           # missing some parts of the stdlib.
           inherit pypy2Minimal;
@@ -375,7 +367,7 @@
         devShells.default = pkgs.mkShell {
           packages = builtins.filter (p: !p.meta.broken) (with pkgs; [
             cachix nix-tree
-            pypy2Minimal
+            # pypy2Minimal
           ]);
         };
       }

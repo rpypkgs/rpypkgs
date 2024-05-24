@@ -6,12 +6,11 @@ Language | Attribute
 ---|---
 Brainfuck | `bf`
 DIVSPL | `divspl`
-Game Boy LR35902 | `pygirl`
+LR35902 "Game Boy" | `pygirl`
 Nix | `regiux`
 Prolog | `pyrolog`
-Python 2.7 | `pypy27`
-Python 3.8 | `pypy38`
-Python 3.9 | `pypy39`
+Python 2.7 | `pypy2`
+Python 3.10 | `pypy3`
 Ruby | `topaz`
 
 And its helpers are used by the following flakes:
@@ -31,6 +30,11 @@ This flake supports fifteen different systems covering all supported upstream
 system configurations. If PyPy officially supports a system, then this flake
 should support it as well.
 
+This flake bootstraps RPython semi-independently of `nixpkgs`. It uses `stdenv`
+to build a CPython for Python 2.7, then uses CPython to build PyPy for Python
+2.7 with minimal dependencies. This PyPy is then used to run RPython for all
+other builds.
+
 ## Limitations
 
 This flake does not support cross-compilation. This may be a permanent
@@ -40,4 +44,5 @@ only.
 ## Contributions
 
 There is not yet a contribution workflow; contact Corbin directly to send
-patches or pull requests.
+patches or pull requests. Individual interpreters can be added to collaborative
+organizations on forges; inquire for details.
