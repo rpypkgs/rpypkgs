@@ -68,7 +68,7 @@ class ZeroScaleAdd(Op):
     def __init__(self, offset, scale):
         self.offset = offset
         self.scale = scale
-    def asStr(self): return "0scaleadd(%d, %d)" % (self.offset, self.scale)
+    def asStr(self): return "0scaleadd(%d, %d)" % (self.scale, self.offset)
     def runOn(self, tape, position):
         tape[position + self.offset] += tape[position] * self.scale
         tape[position] = 0
@@ -78,6 +78,26 @@ def scaleAdd(offset, scale):
     if (offset, scale) not in scaleAddCache:
         scaleAddCache[offset, scale] = ZeroScaleAdd(offset, scale)
     return scaleAddCache[offset, scale]
+class ZeroScaleAdd2(Op):
+    _immutable_fields_ = "offset1", "scale1", "offset2", "scale2"
+    def __init__(self, offset1, scale1, offset2, scale2):
+        self.offset1 = offset1
+        self.scale1 = scale1
+        self.offset2 = offset2
+        self.scale2 = scale2
+    def asStr(self):
+        return "0scaleadd2(%d, %d; %d, %d)" % (self.scale1, self.offset1, self.scale2, self.offset2)
+    def runOn(self, tape, position):
+        tape[position + self.offset1] += tape[position] * self.scale1
+        tape[position + self.offset2] += tape[position] * self.scale2
+        tape[position] = 0
+        return position
+scaleAdd2Cache = {}
+def scaleAdd2(offset1, scale1, offset2, scale2):
+    k = offset1, scale1, offset2, scale2
+    if k not in scaleAdd2Cache:
+        scaleAdd2Cache[k] = ZeroScaleAdd2(offset1, scale1, offset2, scale2)
+    return scaleAdd2Cache[k]
 class Loop(Op):
     _immutable_fields_ = "ops[*]",
     def __init__(self, ops): self.ops = ops
@@ -104,7 +124,8 @@ def peep(ops):
     rv = []
     temp = ops[0]
     for op in ops[1:]:
-        if isinstance(temp, Shift) and isinstance(op, Shift):
+        if isinstance(temp, Loop) and isinstance(op, Loop): continue
+        elif isinstance(temp, Shift) and isinstance(op, Shift):
             temp = shift(temp.width + op.width)
         elif isinstance(temp, Add) and isinstance(op, Add):
             temp = add(temp.imm + op.imm)
@@ -119,6 +140,11 @@ def oppositeShifts(op1, op2):
     if not isinstance(op1, Shift) or not isinstance(op2, Shift): return False
     return op1.width == -op2.width
 
+def oppositeShifts2(op1, op2, op3):
+    if not isinstance(op1, Shift) or not isinstance(op2, Shift) or not isinstance(op3, Shift):
+        return False
+    return op1.width + op2.width + op3.width == 0
+
 def isConstAdd(op, imm): return isinstance(op, Add) and op.imm == imm
 
 def loopish(ops):
@@ -128,6 +154,18 @@ def loopish(ops):
           isConstAdd(ops[0], -1) and isinstance(ops[2], Add) and
           oppositeShifts(ops[1], ops[3])):
         return scaleAdd(ops[1].width, ops[2].imm)
+    elif (len(ops) == 4 and
+          isConstAdd(ops[3], -1) and isinstance(ops[1], Add) and
+          oppositeShifts(ops[0], ops[2])):
+        return scaleAdd(ops[0].width, ops[1].imm)
+    elif (len(ops) == 6 and
+          isConstAdd(ops[0], -1) and isinstance(ops[2], Add) and isinstance(ops[4], Add) and
+          oppositeShifts2(ops[1], ops[3], ops[5])):
+        return scaleAdd2(ops[1].width, ops[2].imm, ops[1].width + ops[3].width, ops[4].imm)
+    elif (len(ops) == 6 and
+          isConstAdd(ops[5], -1) and isinstance(ops[1], Add) and isinstance(ops[3], Add) and
+          oppositeShifts2(ops[0], ops[2], ops[4])):
+        return scaleAdd2(ops[0].width, ops[1].imm, ops[0].width + ops[2].width, ops[3].imm)
     return loop(ops[:])
 
 parseTable = {
@@ -149,14 +187,19 @@ def parse(s):
 
 def entryPoint(argv):
     if len(argv) < 2 or "-h" in argv:
-        print "Usage: bf [-c <number of cells>] [-h] <program.bf>"
+        print "Usage: bf [-c <number of cells>] [-h] [-d] <program.bf>"
+        print "To dump an AST: bf -d <program.bf>"
         return 1
     cells = 30000
     if argv[1] == "-c":
         cells = int(argv[2])
         path = argv[3]
+    elif argv[1] == "-d": path = argv[2]
     else: path = argv[1]
     with open(path) as handle: program = parse(handle.read())
+    if "-d" in argv:
+        print "AST:", "; ".join([op.asStr() for op in program])
+        return 0
     tape = bytearray("\x00" * cells)
     position = 0
     for op in program: position = op.runOn(tape, position)
