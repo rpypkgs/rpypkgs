@@ -121,6 +121,7 @@ def loop(ops):
     return rv
 
 def peep(ops):
+    if not ops: return ops
     rv = []
     temp = ops[0]
     for op in ops[1:]:
