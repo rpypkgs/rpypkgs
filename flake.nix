@@ -154,8 +154,7 @@
 
         # Phase 2: Build everything else using PyPy.
         mkRPythonDerivation = mkRPythonMaker {
-          # py2 = "${pypy2Minimal}/bin/pypy";
-          py2 = "${cpython2}/bin/python";
+          py2 = "${pypy2Minimal}/bin/pypy";
         };
 
         pypy2 = mkPyPy {
