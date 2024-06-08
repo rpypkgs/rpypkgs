@@ -23,7 +23,7 @@
     in flake-utils.lib.eachSystem testedSystems (system:
       let
         pkgs = import nixpkgs { inherit system; };
-        interp = rpypkgs.lib.mkRPythonDerivation {
+        interp = rpypkgs.lib.${system}.mkRPythonDerivation {
           # The Python 2.7 module containing the entrypoint.
           entrypoint = "main.py";
           # The name of the binary after translation.
