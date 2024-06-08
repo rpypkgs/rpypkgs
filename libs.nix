@@ -29,10 +29,10 @@ let
     sha256 = "sha256-5kT97BL3hy+GxY/3kNpFYhixD4Y5cCSVFtYKXqyncgY=";
   };
   rplySrc = fetchFromGitHub {
-    owner = "alex";
+    owner = "rpypkgs";
     repo = "rply";
-    rev = "v0.7.8";
-    sha256 = "sha256-mO/wcIsDIBjoxUsFvzftj5H5ziJijJcoyrUk52fcyE4=";
+    rev = "5cfe4daeb8feb6d0fae268212c884d369eac634e";
+    sha256 = "sha256-0G/jbEQrC5sqJ9mQylC0eaBQSweXS49DPdSfQRHQWRM=";
   };
   rsdlSrc = fetchPypi {
     pname = "rsdl";
