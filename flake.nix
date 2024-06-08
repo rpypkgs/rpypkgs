@@ -11,6 +11,7 @@
       # RPython's list of supported systems: https://www.pypy.org/features.html
       # Tested systems have had at least one package built and manually
       # confirmed to work; they do not need to support every interpreter. ~ C.
+      # Bump template/flake.nix when new systems are tested, too.
       testedSystems = [
         "x86_64-linux"
         "aarch64-linux"
@@ -24,7 +25,12 @@
         "powerpc64le-linux"
         "s390x-linux"
       ];
-    in flake-utils.lib.eachSystem (testedSystems ++ untestedSystems) (system:
+    in {
+      templates.default = {
+        path = ./template;
+        description = "A basic RPython project";
+      };
+    } // (flake-utils.lib.eachSystem (testedSystems ++ untestedSystems) (system:
       let
         pkgs = import nixpkgs { inherit system; };
 
@@ -419,5 +425,5 @@
           ]);
         };
       }
-    );
+    ));
 }
