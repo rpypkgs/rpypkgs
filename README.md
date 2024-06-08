@@ -7,7 +7,6 @@ Language | Attribute
 Brainfuck | `bf`
 DIVSPL | `divspl`
 LR35902 "Game Boy" | `pygirl`
-Nix | `regiux`
 Pixie | `pixie`
 Prolog | `pyrolog`
 Python 2.7 | `pypy2`
@@ -19,6 +18,7 @@ And its helpers are used by the following flakes:
 Language | Downstream
 ---|---
 Monte | [`typhon`](https://github.com/monte-language/typhon/)
+Nix | [`regiux`](https://osdn.net/users/corbin/pf/regiux/)
 
 These implementations have one thing in common: they are written with RPython,
 a restricted subset of Python 2.7 which is amenable to static analysis. Using

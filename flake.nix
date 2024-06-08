@@ -256,23 +256,6 @@
             license = pkgs.lib.licenses.gpl3;
           };
         };
-        regiux = mkRPythonDerivation {
-          entrypoint = "main.py";
-          binName = "main-c";
-          binInstallName = "rix";
-          optLevel = "2";
-          withLibs = ls: [ ls.appdirs ls.rply ];
-        } {
-          pname = "regiux";
-          version = "2024";
-
-          src = ./regiux;
-
-          meta = {
-            description = "Nix parser";
-            license = pkgs.lib.licenses.agpl3;
-          };
-        };
         topaz = mkRPythonDerivation {
           entrypoint = "targettopaz.py";
           binName = "bin/topaz";
@@ -413,7 +396,7 @@
         checks = { inherit divspl; };
         lib = { inherit mkRPythonDerivation; };
         packages = {
-          inherit bf divspl hippyvm pixie pygirl pypy2 pypy3 pysom pyrolog regiux topaz;
+          inherit bf divspl hippyvm pixie pygirl pypy2 pypy3 pysom pyrolog topaz;
           # Export bootstrap PyPy. It is just as fast as standard PyPy, but
           # missing some parts of the stdlib.
           inherit pypy2Minimal;
