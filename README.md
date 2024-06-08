@@ -36,6 +36,10 @@ to build a CPython for Python 2.7, then uses CPython to build PyPy for Python
 2.7 with minimal dependencies. This PyPy is then used to run RPython for all
 other builds.
 
+A Cachix cache is available; it is in the public namespace, as
+[`rpypkgs`](https://app.cachix.org/cache/rpypkgs). It is automatically
+populated on push by GitHub Actions.
+
 ## Limitations
 
 This flake does not support cross-compilation. This may be a permanent
@@ -44,6 +48,4 @@ only.
 
 ## Contributions
 
-There is not yet a contribution workflow; contact Corbin directly to send
-patches or pull requests. Individual interpreters can be added to collaborative
-organizations on forges; inquire for details.
+Pull requests are welcome.
