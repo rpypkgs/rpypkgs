@@ -3,7 +3,7 @@ on:
   pull_request:
   push:
 jobs:
-  tests:
+  cachix:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -14,8 +14,9 @@ jobs:
         name: rpypkgs
         authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
     # Can't do `nix flake check` because Pixie and Topaz are broken.
-    # DIVSPL has a working check.
+    # DIVSPL and PySOM have working checks.
     - run: nix build .#divspl
+    - run: nix build .#pysom
     # PyGirl requires SDL integration.
     - run: nix build .#pygirl
     # This is why we're all here, isn't it?

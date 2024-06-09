@@ -174,9 +174,9 @@
         pypy3 = mkPyPy rec {
           inherit pkgs;
           rpyMaker = mkRPythonDerivation;
-          binName = "pypy3-c";
           pyVersion = "3.10";
           version = "7.3.15";
+          binName = "pypy3-c";
           src = pkgs.fetchurl {
             url = "https://downloads.python.org/pypy/pypy3.10-v${version}-src.tar.bz2";
             hash = "sha256-g3YiEws2YDoYk4mb2fUplhqOSlbJ62cmjXLd+JIMlXk=";
@@ -193,13 +193,13 @@
 
           src = ./divspl;
 
-          doCheck = true;
-          checkPhase = "./divspl-c fizzbuzz.divspl";
-
           postInstall = ''
             mkdir -p $out/share/
             cp *.divspl $out/share/
           '';
+
+          doInstallCheck = true;
+          installCheckPhase = "$out/bin/divspl $out/share/fizzbuzz.divspl";
         };
         bfShare = pkgs.fetchFromGitHub {
           owner = "MG-K";
@@ -331,14 +331,14 @@
           # XXX could also be "BC"
           SOM_INTERP = "AST";
 
-          doCheck = true;
-          checkPhase = ''
-            ./som-ast-jit -cp ${coreLib}/Smalltalk ${coreLib}/TestSuite/TestHarness.som
-          '';
-
           postInstall = ''
             mkdir -p $out/share/
             cp -H -r ${coreLib}/{Smalltalk,Examples,TestSuite} $out/share/
+          '';
+
+          doInstallCheck = true;
+          installCheckPhase = ''
+            $out/bin/som-ast-jit -cp $out/share/Smalltalk $out/share/TestSuite/TestHarness.som
           '';
 
           meta = {
@@ -393,7 +393,7 @@
           };
         };
       in {
-        checks = { inherit divspl; };
+        checks = { inherit divspl pysom; };
         lib = { inherit mkRPythonDerivation; };
         packages = {
           inherit bf divspl hippyvm pixie pygirl pypy2 pypy3 pysom pyrolog topaz;
