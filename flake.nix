@@ -86,7 +86,7 @@
           # Ensure that RPython binaries don't have Python runtime dependencies.
           # disallowedReferences = [ py2 ];
           # To that end, don't automatically add references to Python modules!
-          # dontPatchShebangs = true;
+          dontPatchShebangs = true;
 
           inherit buildInputs;
           nativeBuildInputs = builtins.concatLists [
