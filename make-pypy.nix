@@ -53,7 +53,7 @@ rpyMaker {
     ln -s $out/pypy-c/${binName} $out/bin/pypy
 
     mkdir -p $out/lib/
-    cp libpypy-c${pkgs.stdenv.hostPlatform.extensions.sharedLibrary} $out/lib/
+    cp *${pkgs.stdenv.hostPlatform.extensions.sharedLibrary} $out/lib/
     ln -s $out/pypy-c/lib-python/${pyVersion} $out/lib/pypy${pyVersion}
 
     mkdir -p $out/include/
@@ -63,10 +63,10 @@ rpyMaker {
   # Verify that cffi correctly found various system libraries.
   doInstallCheck = !minimal;
   installCheckPhase = let
-    modules = if (binName == "pypy3-c") then [
-      "curses" "lzma" "sqlite3" "tkinter"
-    ] else [
+    modules = if (binName == "pypy-c") then [
       "Tkinter" "curses" "sqlite3"
+    ] else [
+      "curses" "lzma" "sqlite3" "tkinter"
     ];
     modlist = builtins.concatStringsSep ", " modules;
     imports = builtins.concatStringsSep "; " (builtins.map (x: "import ${x}") modules);

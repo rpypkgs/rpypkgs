@@ -176,7 +176,7 @@
           rpyMaker = mkRPythonDerivation;
           pyVersion = "3.10";
           version = "7.3.15";
-          binName = "pypy3-c";
+          binName = "pypy3.10-c";
           src = pkgs.fetchurl {
             url = "https://downloads.python.org/pypy/pypy3.10-v${version}-src.tar.bz2";
             hash = "sha256-g3YiEws2YDoYk4mb2fUplhqOSlbJ62cmjXLd+JIMlXk=";
