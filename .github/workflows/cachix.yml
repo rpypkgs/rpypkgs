@@ -13,12 +13,7 @@ jobs:
       with:
         name: rpypkgs
         authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
-    # Can't do `nix flake check` because Pixie and Topaz are broken.
-    # DIVSPL and PySOM have working checks.
-    - run: nix build .#divspl
-    - run: nix build .#pysom
+    # Checks PyPy and some others.
+    - run: nix flake check
     # PyGirl requires SDL integration.
     - run: nix build .#pygirl
-    # This is why we're all here, isn't it?
-    - run: nix build .#pypy2
-    - run: nix build .#pypy3

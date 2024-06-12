@@ -251,7 +251,6 @@
           '';
 
           meta = {
-            broken = true;
             description = "A small fast native Lisp with 'magical' powers";
             license = pkgs.lib.licenses.gpl3;
           };
@@ -277,7 +276,6 @@
           patches = [ ./topaz.patch ];
 
           meta = {
-            broken = true;
             description = "A high performance ruby, written in RPython";
             license = pkgs.lib.licenses.bsd3;
           };
@@ -393,7 +391,7 @@
           };
         };
       in {
-        checks = { inherit divspl pysom; };
+        checks = { inherit divspl pysom pypy2 pypy3; };
         lib = { inherit mkRPythonDerivation; };
         packages = {
           inherit bf divspl hippyvm pixie pygirl pypy2 pypy3 pysom pyrolog topaz;
