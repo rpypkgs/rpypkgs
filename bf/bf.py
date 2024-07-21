@@ -183,7 +183,7 @@ def parse(s):
         elif char == ']':
             loop = loopish(peep(ops.pop()))
             ops[-1].append(loop)
-    
+
     return peep(ops.pop())
 
 def entryPoint(argv):
@@ -207,7 +207,7 @@ def entryPoint(argv):
     return 0
 
 def target(*args): return entryPoint, None
-    
+
 def jitpolicy(driver): return JitPolicy()
 
 if __name__ == "__main__":
