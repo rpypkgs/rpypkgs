@@ -9,7 +9,6 @@
 , readline
 , sqlite
 , zlib
-, self
 , configd, coreutils
 , autoreconfHook
 , python-setup-hook
@@ -41,7 +40,7 @@ let
   else pythonOnBuildForHost.interpreter;
 
   passthru = rec {
-    inherit self sourceVersion packageOverrides;
+    inherit sourceVersion packageOverrides;
     implementation = "cpython";
     libPrefix = "python${pythonVersion}";
     executable = libPrefix;
