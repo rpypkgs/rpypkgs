@@ -23,20 +23,24 @@ class Op(object):
 
 class _Input(Op):
     def asStr(self): return ','
+    def asBF(self, pieces): pieces.append(',')
     def runOn(self, tape, position):
         tape[position] = ord(os.read(0, 1)[0])
         return position
 Input = _Input()
 class _Output(Op):
     def asStr(self): return '.'
+    def asBF(self, pieces): pieces.append('.')
     def runOn(self, tape, position):
         os.write(1, chr(tape[position]))
         return position
 Output = _Output()
+def addAsBF(i): return '+' * i if i > 0 else '-' * -i
 class Add(Op):
     _immutable_fields_ = "imm",
     def __init__(self, imm): self.imm = imm
     def asStr(self): return "add(%d)" % self.imm
+    def asBF(self, pieces): pieces.append(addAsBF(self.imm))
     def runOn(self, tape, position):
         tape[position] += self.imm
         return position
@@ -46,10 +50,12 @@ def add(imm):
     return addCache[imm]
 Inc = add(1)
 Dec = add(-1)
+def shiftAsBF(i): return '>' * i if i > 0 else '<' * -i
 class Shift(Op):
     _immutable_fields_ = "width",
     def __init__(self, width): self.width = width
     def asStr(self): return "shift(%d)" % self.width
+    def asBF(self, pieces): pieces.append(shiftAsBF(self.width))
     def runOn(self, tape, position): return position + self.width
 shiftCache = {}
 def shift(width):
@@ -59,6 +65,7 @@ Left = shift(-1)
 Right = shift(1)
 class _Zero(Op):
     def asStr(self): return "0"
+    def asBF(self, pieces): pieces.append('[-]')
     def runOn(self, tape, position):
         tape[position] = 0
         return position
@@ -69,6 +76,9 @@ class ZeroScaleAdd(Op):
         self.offset = offset
         self.scale = scale
     def asStr(self): return "0scaleadd(%d, %d)" % (self.scale, self.offset)
+    def asBF(self, pieces):
+        pieces.extend(["[-", shiftAsBF(self.offset), addAsBF(self.scale),
+                       shiftAsBF(-self.offset), "]"])
     def runOn(self, tape, position):
         tape[position + self.offset] += tape[position] * self.scale
         tape[position] = 0
@@ -87,6 +97,11 @@ class ZeroScaleAdd2(Op):
         self.scale2 = scale2
     def asStr(self):
         return "0scaleadd2(%d, %d; %d, %d)" % (self.scale1, self.offset1, self.scale2, self.offset2)
+    def asBF(self, pieces):
+        delta = self.offset2 - self.offset1
+        pieces.extend(["[-", shiftAsBF(self.offset1), addAsBF(self.scale1),
+                       shiftAsBF(delta), addAsBF(self.scale2),
+                       shiftAsBF(-self.offset2), "]"])
     def runOn(self, tape, position):
         tape[position + self.offset1] += tape[position] * self.scale1
         tape[position + self.offset2] += tape[position] * self.scale2
@@ -103,6 +118,10 @@ class Loop(Op):
     def __init__(self, ops): self.ops = ops
     def asStr(self):
         return '[' + '; '.join([op.asStr() for op in self.ops]) + ']'
+    def asBF(self, pieces):
+        pieces.append("[")
+        for op in self.ops: op.asBF(pieces)
+        pieces.append("]")
     def runOn(self, tape, position):
         while tape[position]:
             i = 0
@@ -188,18 +207,24 @@ def parse(s):
 
 def entryPoint(argv):
     if len(argv) < 2 or "-h" in argv:
-        print "Usage: bf [-c <number of cells>] [-h] [-d] <program.bf>"
+        print "Usage: bf [-c <number of cells>] [-h] [-d] [-o] <program.bf>"
         print "To dump an AST: bf -d <program.bf>"
+        print "To dump a minimized optimized program: bf -o <program.bf>"
         return 1
     cells = 30000
     if argv[1] == "-c":
         cells = int(argv[2])
         path = argv[3]
-    elif argv[1] == "-d": path = argv[2]
+    elif argv[1] in ["-d", "-o"]: path = argv[2]
     else: path = argv[1]
     with open(path) as handle: program = parse(handle.read())
     if "-d" in argv:
         print "AST:", "; ".join([op.asStr() for op in program])
+        return 0
+    if "-o" in argv:
+        pieces = []
+        for op in program: op.asBF(pieces)
+        print "".join(pieces)
         return 0
     tape = bytearray("\x00" * cells)
     position = 0
