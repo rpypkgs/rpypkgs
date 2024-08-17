@@ -139,12 +139,16 @@ def loop(ops):
     loopCache.append(rv)
     return rv
 
+def isConstAdd(op, imm): return isinstance(op, Add) and op.imm == imm
+
 def peep(ops):
     if not ops: return ops
     rv = []
     temp = ops[0]
     for op in ops[1:]:
         if isinstance(temp, Loop) and isinstance(op, Loop): continue
+        elif isinstance(op, Shift) and op.width == 0: continue
+        elif isConstAdd(op, 0): continue
         elif isinstance(temp, Shift) and isinstance(op, Shift):
             temp = shift(temp.width + op.width)
         elif isinstance(temp, Add) and isinstance(op, Add):
@@ -165,10 +169,8 @@ def oppositeShifts2(op1, op2, op3):
         return False
     return op1.width + op2.width + op3.width == 0
 
-def isConstAdd(op, imm): return isinstance(op, Add) and op.imm == imm
-
 def loopish(ops):
-    if len(ops) == 1 and isConstAdd(ops[0], -1):
+    if len(ops) == 1 and (isConstAdd(ops[0], -1) or isConstAdd(ops[0], 1)):
         return Zero
     elif (len(ops) == 4 and
           isConstAdd(ops[0], -1) and isinstance(ops[2], Add) and
