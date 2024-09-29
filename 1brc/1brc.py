@@ -1,10 +1,10 @@
 import os, sys
 
 from rpython.rlib.rfloat import formatd
+from rpython.rlib.rmmap import mmap, ACCESS_READ, MADV_SEQUENTIAL
 
 class Summary(object):
     count = 1
-    c1 = 0.0
 
     def __init__(self, f): self.high = self.low = self.average = f
 
@@ -21,30 +21,32 @@ class Summary(object):
                 formatd(self.average, 'f', 1) + "/" +
                 formatd(self.high, 'f', 1))
 
-def main(_argv):
-    bsize = os.fstatvfs(0).f_bsize
-    print "Block size:", bsize
+def main(argv):
+    if len(argv) != 2:
+        print "Usage:", argv[0], "<samples.txt>"
+        return 1
+    path = argv[1]
     indices = {}
     summaries = []
     hunk = ""
     i = 0
-    reads = 0
-    while True:
-        hunk += os.read(0, bsize)
-        reads += 1
-        if not hunk: break
-        lines = hunk.split("\n")
-        hunk = lines.pop()
-        for line in lines:
+    with open(path, "rb") as handle:
+        lines = mmap(handle.fileno(), 0, access=ACCESS_READ)
+        lines.madvise(MADV_SEQUENTIAL, 0, lines.size)
+        lines.check_valid()
+        while True:
+            line = lines.readline()
+            if not line: break
             i += 1
             station, sample = line.split(";", 2)
-            f = float(sample)
+            end = len(sample) - 1
+            assert end >= 0, "missing sample on line %d" % i
+            f = float(sample[:end])
             if station in indices: summaries[indices[station]].observe(f)
             else:
                 indices[station] = len(summaries)
                 summaries.append(Summary(f))
     print "Number of samples:", i
-    print "Number of read() calls:", reads
     print "Number of stations:", len(summaries)
     i = 0
     for station in indices:
