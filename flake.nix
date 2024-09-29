@@ -201,6 +201,17 @@
           doInstallCheck = true;
           installCheckPhase = "$out/bin/divspl $out/share/fizzbuzz.divspl";
         };
+        r1brc = mkRPythonDerivation {
+          entrypoint = "1brc.py";
+          binName = "1brc-c";
+          binInstallName = "1brc";
+          optLevel = "2";
+        } {
+          pname = "1brc";
+          version = "1";
+
+          src = ./1brc;
+        };
         bfShare = pkgs.fetchFromGitHub {
           owner = "MG-K";
           repo = "pypy-tutorial-ko";
@@ -394,7 +405,7 @@
         checks = { inherit divspl pysom pypy2 pypy3; };
         lib = { inherit mkRPythonDerivation; };
         packages = {
-          inherit bf divspl hippyvm pixie pygirl pypy2 pypy3 pysom pyrolog topaz;
+          inherit r1brc bf divspl hippyvm pixie pygirl pypy2 pypy3 pysom pyrolog topaz;
           # Export bootstrap PyPy. It is just as fast as standard PyPy, but
           # missing some parts of the stdlib.
           inherit pypy2Minimal;
