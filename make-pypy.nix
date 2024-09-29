@@ -74,4 +74,6 @@ rpyMaker {
       echo "Testing whether we can import modules: ${modlist}"
       $out/bin/pypy -c '${imports}'
     '';
+
+  meta.mainProgram = "pypy";
 }
