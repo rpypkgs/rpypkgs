@@ -414,6 +414,7 @@
           packages = builtins.filter (p: !p.meta.broken) (with pkgs; [
             cachix nix-tree
             # pypy2Minimal
+            linuxPackages.perf
           ]);
         };
       }
