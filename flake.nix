@@ -266,6 +266,22 @@
             license = pkgs.lib.licenses.gpl3;
           };
         };
+        plang = mkRPythonDerivation {
+          entrypoint = "plang.py";
+          binName = "plang-c";
+          optLevel = "2";
+          withLibs = ls: [ ls.appdirs ls.rply ];
+        } {
+          pname = "plang";
+          version = "2014";
+
+          src = pkgs.fetchFromGitHub {
+            owner = "marianoguerra";
+            repo = "plang";
+            rev = "ba8db7710e1219144e335660b83d106b42ddbdbd";
+            sha256 = "sha256-DroIq4geewZ/yhAT0WK6zZppsMEApPHALXYDYwvADyo=";
+          };
+        };
         topaz = mkRPythonDerivation {
           entrypoint = "targettopaz.py";
           binName = "bin/topaz";
@@ -405,7 +421,7 @@
         checks = { inherit divspl pysom pypy2 pypy3; };
         lib = { inherit mkRPythonDerivation; };
         packages = {
-          inherit r1brc bf divspl hippyvm pixie pygirl pypy2 pypy3 pysom pyrolog topaz;
+          inherit r1brc bf divspl hippyvm pixie plang pygirl pypy2 pypy3 pysom pyrolog topaz;
           # Export bootstrap PyPy. It is just as fast as standard PyPy, but
           # missing some parts of the stdlib.
           inherit pypy2Minimal;
