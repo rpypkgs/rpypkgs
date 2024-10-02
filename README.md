@@ -9,7 +9,7 @@ Language | Attribute
 Brainfuck | `bf`
 DIVSPL | `divspl`
 LR35902 "Game Boy" | `pygirl`
-Kernel Lisp | `plang`
+Kernel Lisp | `icbink`, `plang`
 Pixie Lisp | `pixie`
 Prolog | `pyrolog`
 Python 2.7 | `pypy2`

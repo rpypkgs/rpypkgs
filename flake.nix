@@ -201,6 +201,26 @@
           doInstallCheck = true;
           installCheckPhase = "$out/bin/divspl $out/share/fizzbuzz.divspl";
         };
+        icbink = mkRPythonDerivation {
+          entrypoint = "entry_point.py";
+          binName = "entry_point-c";
+          binInstallName = "icbink";
+        } {
+          pname = "icbink";
+          version = "2015";
+
+          src = pkgs.fetchFromGitHub {
+            owner = "euccastro";
+            repo = "icbink";
+            rev = "4f3505560eed0dfd737b4c650e1d419dd15d0e12";
+            sha256 = "sha256-oHXBbTARik3uIKrdPg7MJ8LLRFnfC7XpXSgwp0A6tVk=";
+          };
+
+          postInstall = ''
+            mkdir -p $out/share/
+            cp *.k $out/share/
+          '';
+        };
         r1brc = mkRPythonDerivation {
           entrypoint = "1brc.py";
           binName = "1brc-c";
@@ -421,7 +441,7 @@
         checks = { inherit divspl pysom pypy2 pypy3; };
         lib = { inherit mkRPythonDerivation; };
         packages = {
-          inherit r1brc bf divspl hippyvm pixie plang pygirl pypy2 pypy3 pysom pyrolog topaz;
+          inherit r1brc bf divspl hippyvm icbink pixie plang pygirl pypy2 pypy3 pysom pyrolog topaz;
           # Export bootstrap PyPy. It is just as fast as standard PyPy, but
           # missing some parts of the stdlib.
           inherit pypy2Minimal;
