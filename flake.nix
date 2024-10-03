@@ -258,6 +258,27 @@
             license = pkgs.lib.licenses.mit;
           };
         };
+        dcpu16py = mkRPythonDerivation {
+          entrypoint = "dcpu16.py";
+          binName = "dcpu16-c";
+          binInstallName = "dcpu16";
+          optLevel = "2";
+        } {
+          pname = "dcpu16py";
+          version = "2012";
+
+          src = pkgs.fetchFromGitHub {
+            owner = "AlekSi";
+            repo = "dcpu16py";
+            rev = "721f08af29d5b3d62161a4e1eca9c81801d13619";
+            sha256 = "sha256-5uxkIrk8Ae6E6fO5q5w/mIT02J6UrrhTTIEDkDRDlWc=";
+          };
+
+          meta = {
+            description = "A Python implementation of Notch's DCPU-16 (complete with assembler, disassembler, debugger and video terminal implementations)";
+            license = pkgs.lib.licenses.mit;
+          };
+        };
         pixie = mkRPythonDerivation {
           entrypoint = "target.py";
           binName = "pixie-vm";
@@ -300,6 +321,27 @@
             repo = "plang";
             rev = "ba8db7710e1219144e335660b83d106b42ddbdbd";
             sha256 = "sha256-DroIq4geewZ/yhAT0WK6zZppsMEApPHALXYDYwvADyo=";
+          };
+        };
+        pydgin = mkRPythonDerivation {
+          entrypoint = "arm/arm-sim.py";
+          binName = "pydgin-arm-nojit";
+          binInstallName = "pydgin-arm-nojit";
+          optLevel = "2";
+        } {
+          pname = "pydgin";
+          version = "2016";
+
+          src = pkgs.fetchFromGitHub {
+            owner = "cornell-brg";
+            repo = "pydgin";
+            rev = "30f8efa914f26dbee622ebd14d4345840a69c10c";
+            sha256 = "sha256-60ZU+1AirK+PFmZz3bigJvS1ATJ+K4ZVhj2zSplc4Cs=";
+          };
+
+          meta = {
+            description = "A (Py)thon (D)SL for (G)enerating (In)struction set simulators.";
+            license = pkgs.lib.licenses.bsd3;
           };
         };
         topaz = mkRPythonDerivation {
@@ -441,7 +483,7 @@
         checks = { inherit divspl pysom pypy2 pypy3; };
         lib = { inherit mkRPythonDerivation; };
         packages = {
-          inherit r1brc bf divspl hippyvm icbink pixie plang pygirl pypy2 pypy3 pysom pyrolog topaz;
+          inherit r1brc bf dcpu16py divspl hippyvm icbink pixie plang pydgin pygirl pypy2 pypy3 pysom pyrolog topaz;
           # Export bootstrap PyPy. It is just as fast as standard PyPy, but
           # missing some parts of the stdlib.
           inherit pypy2Minimal;

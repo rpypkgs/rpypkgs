@@ -6,7 +6,9 @@ languages:
 Language | Attribute
 ---|---
 1 Billion Rows Challenge | `r1brc`
+ARM | `pydgin`
 Brainfuck | `bf`
+DCPU-16 | `dcpu16py`
 DIVSPL | `divspl`
 LR35902 "Game Boy" | `pygirl`
 Kernel Lisp | `icbink`, `plang`
