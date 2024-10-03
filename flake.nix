@@ -366,6 +366,28 @@
             license = pkgs.lib.licenses.bsd3;
           };
         };
+        rsqueak = mkRPythonDerivation {
+          entrypoint = "targetrsqueak.py";
+          binName = "rsqueak";
+          withLibs = ls: [ ls.rsdl ];
+        } {
+          pname = "rsqueak";
+          version = "2023";
+
+          src = pkgs.fetchFromGitHub {
+            owner = "hpi-swa";
+            repo = "RSqueak";
+            rev = "6c2120b38c9d89bf6742508e6a23a6f42df0a0a0";
+            sha256 = "sha256-2K9Fzc/IKIU66oerRxqgymYJimSRl9TtjlYMFeKDpas=";
+          };
+
+          buildInputs = with pkgs; [ SDL SDL2 ];
+
+          meta = {
+            description = "A Squeak/Smalltalk VM written in RPython";
+            license = pkgs.lib.licenses.bsd3;
+          };
+        };
         topaz = mkRPythonDerivation {
           entrypoint = "targettopaz.py";
           binName = "bin/topaz";
@@ -505,7 +527,7 @@
         checks = { inherit divspl pysom pypy2 pypy3; };
         lib = { inherit mkRPythonDerivation; };
         packages = {
-          inherit r1brc bf dcpu16py divspl hippyvm icbink pixie plang pycket pydgin pygirl pypy2 pypy3 pysom pyrolog topaz;
+          inherit r1brc bf dcpu16py divspl hippyvm icbink pixie plang pycket pydgin pygirl pypy2 pypy3 pysom pyrolog rsqueak topaz;
           # Export bootstrap PyPy. It is just as fast as standard PyPy, but
           # missing some parts of the stdlib.
           inherit pypy2Minimal;

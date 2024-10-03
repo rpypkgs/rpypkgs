@@ -18,6 +18,7 @@ Python 2.7 | `pypy2`
 Python 3.10 | `pypy3`
 Racket Scheme | `pycket`
 SOM Smalltalk | `pysom`
+Squeak | `rsqueak`
 Ruby | `topaz`
 
 And its helpers are used by the following flakes:
