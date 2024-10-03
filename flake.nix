@@ -105,7 +105,7 @@
           # sre patches are required to build without pypy/ src.
           postPatch = ''
             cp -r ${pypySrc}/{rpython,py} .
-            ${pkgs.lib.optionalString usesPyPyCode "cp -r ${pypySrc}/pypy ."}
+            ${pkgs.lib.optionalString usesPyPyCode "cp -r ${pypySrc}/pypy ${pypySrc}/lib-python ."}
             chmod -R u+w rpython/
 
             sed -i -e 's_, pytest__' rpython/conftest.py
