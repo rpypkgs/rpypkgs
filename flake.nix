@@ -323,6 +323,28 @@
             sha256 = "sha256-DroIq4geewZ/yhAT0WK6zZppsMEApPHALXYDYwvADyo=";
           };
         };
+        pycket = mkRPythonDerivation {
+          entrypoint = "targetpycket.py";
+          binName = "pycket-c";
+          binInstallName = "pycket";
+          interpFlags = "--linklets";
+          usesPyPyCode = true;
+        } {
+          pname = "pycket";
+          version = "2021";
+
+          src = pkgs.fetchFromGitHub {
+            owner = "pycket";
+            repo = "pycket";
+            rev = "05ebd9885efa3a0ae54e77c1a1f07ea441b445c6";
+            sha256 = "sha256-cm349FIzOhtgJwrZVECojLxVUJE4s7sHBXxRCTct320=";
+          };
+
+          # Force a newer Unicode DB.
+          prePatch = ''
+            sed -ie 's,6_2_0,9_0_0,g' pycket/values_string.py pycket/prims/string.py
+          '';
+        };
         pydgin = mkRPythonDerivation {
           entrypoint = "arm/arm-sim.py";
           binName = "pydgin-arm-nojit";
@@ -483,7 +505,7 @@
         checks = { inherit divspl pysom pypy2 pypy3; };
         lib = { inherit mkRPythonDerivation; };
         packages = {
-          inherit r1brc bf dcpu16py divspl hippyvm icbink pixie plang pydgin pygirl pypy2 pypy3 pysom pyrolog topaz;
+          inherit r1brc bf dcpu16py divspl hippyvm icbink pixie plang pycket pydgin pygirl pypy2 pypy3 pysom pyrolog topaz;
           # Export bootstrap PyPy. It is just as fast as standard PyPy, but
           # missing some parts of the stdlib.
           inherit pypy2Minimal;

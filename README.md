@@ -16,6 +16,7 @@ Pixie Lisp | `pixie`
 Prolog | `pyrolog`
 Python 2.7 | `pypy2`
 Python 3.10 | `pypy3`
+Racket Scheme | `pycket`
 SOM Smalltalk | `pysom`
 Ruby | `topaz`
 
