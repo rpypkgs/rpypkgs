@@ -8,13 +8,18 @@ import sys
 from rpython.jit.codewriter.policy import JitPolicy
 from rpython.rlib.jit import JitDriver, purefunction
 
+def asStr(op):
+    pieces = []
+    op.asBF(pieces)
+    return "".join(pieces)
+
 def opEq(ops1, ops2):
     if len(ops1) != len(ops2): return False
     for i, op in enumerate(ops1):
         if op is not ops2[i]: return False
     return True
 
-def printableProgram(pc, loop): return loop.ops[pc].asStr()
+def printableProgram(pc, loop): return asStr(loop.ops[pc])
 jitdriver = JitDriver(greens=['pc', 'loop'], reds=['position', 'tape'],
                       get_printable_location=printableProgram)
 
@@ -22,14 +27,12 @@ class Op(object):
     _immutable_fields_ = "width", "imm"
 
 class _Input(Op):
-    def asStr(self): return ','
     def asBF(self, pieces): pieces.append(',')
     def runOn(self, tape, position):
         tape[position] = ord(os.read(0, 1)[0])
         return position
 Input = _Input()
 class _Output(Op):
-    def asStr(self): return '.'
     def asBF(self, pieces): pieces.append('.')
     def runOn(self, tape, position):
         os.write(1, chr(tape[position]))
@@ -39,7 +42,6 @@ def addAsBF(i): return '+' * i if i > 0 else '-' * -i
 class Add(Op):
     _immutable_fields_ = "imm",
     def __init__(self, imm): self.imm = imm
-    def asStr(self): return "add(%d)" % self.imm
     def asBF(self, pieces): pieces.append(addAsBF(self.imm))
     def runOn(self, tape, position):
         tape[position] += self.imm
@@ -54,7 +56,6 @@ def shiftAsBF(i): return '>' * i if i > 0 else '<' * -i
 class Shift(Op):
     _immutable_fields_ = "width",
     def __init__(self, width): self.width = width
-    def asStr(self): return "shift(%d)" % self.width
     def asBF(self, pieces): pieces.append(shiftAsBF(self.width))
     def runOn(self, tape, position): return position + self.width
 shiftCache = {}
@@ -64,7 +65,6 @@ def shift(width):
 Left = shift(-1)
 Right = shift(1)
 class _Zero(Op):
-    def asStr(self): return "0"
     def asBF(self, pieces): pieces.append('[-]')
     def runOn(self, tape, position):
         tape[position] = 0
@@ -75,7 +75,6 @@ class ZeroScaleAdd(Op):
     def __init__(self, offset, scale):
         self.offset = offset
         self.scale = scale
-    def asStr(self): return "0scaleadd(%d, %d)" % (self.scale, self.offset)
     def asBF(self, pieces):
         pieces.extend(["[-", shiftAsBF(self.offset), addAsBF(self.scale),
                        shiftAsBF(-self.offset), "]"])
@@ -95,8 +94,6 @@ class ZeroScaleAdd2(Op):
         self.scale1 = scale1
         self.offset2 = offset2
         self.scale2 = scale2
-    def asStr(self):
-        return "0scaleadd2(%d, %d; %d, %d)" % (self.scale1, self.offset1, self.scale2, self.offset2)
     def asBF(self, pieces):
         delta = self.offset2 - self.offset1
         pieces.extend(["[-", shiftAsBF(self.offset1), addAsBF(self.scale1),
@@ -116,8 +113,6 @@ def scaleAdd2(offset1, scale1, offset2, scale2):
 class Loop(Op):
     _immutable_fields_ = "ops[*]",
     def __init__(self, ops): self.ops = ops
-    def asStr(self):
-        return '[' + '; '.join([op.asStr() for op in self.ops]) + ']'
     def asBF(self, pieces):
         pieces.append("[")
         for op in self.ops: op.asBF(pieces)
@@ -213,24 +208,20 @@ def parse(s):
 
 def entryPoint(argv):
     if len(argv) < 2 or "-h" in argv:
-        print "Usage: bf [-c <number of cells>] [-h] [-d] [-o] <program.bf>"
-        print "To dump an AST: bf -d <program.bf>"
+        print "Usage: bf [-c <number of cells>] [-h] [-o] <program.bf>"
         print "To dump a minimized optimized program: bf -o <program.bf>"
         return 1
     cells = 30000
     if argv[1] == "-c":
         cells = int(argv[2])
         path = argv[3]
-    elif argv[1] in ["-d", "-o"]: path = argv[2]
+    elif argv[1] == "-o": path = argv[2]
     else: path = argv[1]
     with open(path) as handle: program = parse(handle.read())
-    if "-d" in argv:
-        print "AST:", "; ".join([op.asStr() for op in program])
-        return 0
     if "-o" in argv:
-        pieces = []
-        for op in program: op.asBF(pieces)
-        print "".join(pieces)
+        for op in program:
+            print asStr(op), "",
+        print
         return 0
     tape = bytearray("\x00" * cells)
     position = 0
