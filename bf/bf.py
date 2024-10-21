@@ -25,6 +25,7 @@ jitdriver = JitDriver(greens=['pc', 'loop'], reds=['position', 'tape'],
 
 class Op(object):
     _immutable_fields_ = "width", "imm"
+    def isConstAdd(self, imm): return False
 
 class _Input(Op):
     def asBF(self, pieces): pieces.append(',')
@@ -43,6 +44,7 @@ class Add(Op):
     _immutable_fields_ = "imm",
     def __init__(self, imm): self.imm = imm
     def asBF(self, pieces): pieces.append(addAsBF(self.imm))
+    def isConstAdd(self, imm): return self.imm == imm
     def runOn(self, tape, position):
         tape[position] += self.imm
         return position
@@ -134,8 +136,6 @@ def loop(ops):
     loopCache.append(rv)
     return rv
 
-def isConstAdd(op, imm): return isinstance(op, Add) and op.imm == imm
-
 def peep(ops):
     if not ops: return ops
     rv = []
@@ -143,7 +143,7 @@ def peep(ops):
     for op in ops[1:]:
         if isinstance(temp, Loop) and isinstance(op, Loop): continue
         elif isinstance(op, Shift) and op.width == 0: continue
-        elif isConstAdd(op, 0): continue
+        elif op.isConstAdd(0): continue
         elif isinstance(temp, Shift) and isinstance(op, Shift):
             temp = shift(temp.width + op.width)
         elif isinstance(temp, Add) and isinstance(op, Add):
@@ -165,22 +165,22 @@ def oppositeShifts2(op1, op2, op3):
     return op1.width + op2.width + op3.width == 0
 
 def loopish(ops):
-    if len(ops) == 1 and (isConstAdd(ops[0], -1) or isConstAdd(ops[0], 1)):
+    if len(ops) == 1 and (ops[0].isConstAdd(-1) or ops[0].isConstAdd(1)):
         return Zero
     elif (len(ops) == 4 and
-          isConstAdd(ops[0], -1) and isinstance(ops[2], Add) and
+          ops[0].isConstAdd(-1) and isinstance(ops[2], Add) and
           oppositeShifts(ops[1], ops[3])):
         return scaleAdd(ops[1].width, ops[2].imm)
     elif (len(ops) == 4 and
-          isConstAdd(ops[3], -1) and isinstance(ops[1], Add) and
+          ops[3].isConstAdd(-1) and isinstance(ops[1], Add) and
           oppositeShifts(ops[0], ops[2])):
         return scaleAdd(ops[0].width, ops[1].imm)
     elif (len(ops) == 6 and
-          isConstAdd(ops[0], -1) and isinstance(ops[2], Add) and isinstance(ops[4], Add) and
+          ops[0].isConstAdd(-1) and isinstance(ops[2], Add) and isinstance(ops[4], Add) and
           oppositeShifts2(ops[1], ops[3], ops[5])):
         return scaleAdd2(ops[1].width, ops[2].imm, ops[1].width + ops[3].width, ops[4].imm)
     elif (len(ops) == 6 and
-          isConstAdd(ops[5], -1) and isinstance(ops[1], Add) and isinstance(ops[3], Add) and
+          ops[5].isConstAdd(-1) and isinstance(ops[1], Add) and isinstance(ops[3], Add) and
           oppositeShifts2(ops[0], ops[2], ops[4])):
         return scaleAdd2(ops[0].width, ops[1].imm, ops[0].width + ops[2].width, ops[3].imm)
     return loop(ops[:])
