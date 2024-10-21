@@ -205,7 +205,11 @@ def parse(s):
             loop = loopish(peep(ops.pop()))
             ops[-1].append(loop)
 
-    return peep(ops.pop())
+    rv = peep(ops.pop())
+    # Slice off initial loops.
+    i = 0
+    while i < len(rv) and isinstance(rv[i], Loop): i += 1
+    return rv[i:]
 
 def entryPoint(argv):
     if len(argv) < 2 or "-h" in argv:
