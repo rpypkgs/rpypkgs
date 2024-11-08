@@ -25,7 +25,7 @@ class BF(object):
     def loop(self, bfs): pass
     def input(self): pass
     def output(self): pass
-    def zero(self): return self.loop(self.plus(1))
+    def zero(self): return self.loop(self.plus(-1))
     def move(self, i): return self.scalemove(i, 1)
     def move2(self, i, j): return self.scalemove2(i, 1, j, 1)
     def scalemove(self, i, s):
@@ -130,7 +130,7 @@ class AsOps(object):
             return Seq(l.ops + r.ops)
         elif isinstance(l, Seq): return Seq(l.ops + [r])
         elif isinstance(r, Seq): return Seq([l] + r.ops)
-        else: return Seq([l, r])
+        return Seq([l, r])
     def plus(self, i): return Add(i)
     def right(self, i): return Shift(i)
     def loop(self, bfs): return Loop(bfs)
@@ -166,17 +166,21 @@ def makePeephole(cls):
             for bf, ad, imm in r:
                 if ad is theIdentity: continue
                 elif adHead is aLoop and ad is aLoop: continue
+                elif adHead is theIdentity:
+                    bfHead, adHead, immHead = bf, ad, imm
                 elif adHead is anAdd and ad is aZero:
                     bfHead, adHead, immHead = bf, ad, imm
                 elif adHead is anAdd and ad is anAdd:
                     immHead += imm
                     if immHead: bfHead = domain.plus(immHead)
+                    elif rv: bfHead, adHead, immHead = rv.pop()
                     else:
                         bfHead = domain.unit()
                         adHead = theIdentity
                 elif adHead is aRight and ad is aRight:
                     immHead += imm
                     if immHead: bfHead = domain.right(immHead)
+                    elif rv: bfHead, adHead, immHead = rv.pop()
                     else:
                         bfHead = domain.unit()
                         adHead = theIdentity
@@ -232,10 +236,11 @@ def parse(s, domain):
     # the optimizers for non-obvious reasons.
     while i < len(s) and s[i] == '[':
         depth = 1
-        while depth:
-            i += 1
+        i += 1
+        while i < len(s) and depth:
             if s[i] == '[': depth += 1
             elif s[i] == ']': depth -= 1
+            i += 1
 
     while i < len(s):
         char = s[i]
@@ -276,5 +281,4 @@ def target(*args): return entryPoint, None
 
 def jitpolicy(driver): return JitPolicy()
 
-if __name__ == "__main__":
-    entryPoint(sys.argv)
+if __name__ == "__main__": sys.exit(entryPoint(sys.argv))
