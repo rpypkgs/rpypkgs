@@ -6,205 +6,252 @@ import os
 import sys
 
 from rpython.jit.codewriter.policy import JitPolicy
-from rpython.rlib.jit import JitDriver, purefunction
+from rpython.rlib.jit import JitDriver, unroll_safe
+from rpython.rlib.objectmodel import import_from_mixin, specialize
 
-def asStr(op):
-    pieces = []
-    op.asBF(pieces)
-    return "".join(pieces)
+# https://esolangs.org/wiki/Algebraic_Brainfuck
+class BF(object):
+    def unit(self): pass
+    def join(self, l, r): pass
+    def joinList(self, bfs):
+        if not bfs: return self.unit()
+        elif len(bfs) == 1: return bfs[0]
+        elif len(bfs) == 2: return self.join(bfs[0], bfs[1])
+        else:
+            i = len(bfs) >> 1
+            return self.join(self.joinList(bfs[:i]), self.joinList(bfs[i:]))
+    def plus(self, i): pass
+    def right(self, i): pass
+    def loop(self, bfs): pass
+    def input(self): pass
+    def output(self): pass
+    def zero(self): return self.loop(self.plus(1))
+    def move(self, i): return self.scalemove(i, 1)
+    def move2(self, i, j): return self.scalemove2(i, 1, j, 1)
+    def scalemove(self, i, s):
+        return self.loop(self.joinList([
+            self.plus(-1), self.right(i), self.plus(s), self.right(-i)]))
+    def scalemove2(self, i, s, j, t):
+        return self.loop(self.joinList([
+                self.plus(-1), self.right(i), self.plus(s), self.right(j - i),
+                self.plus(t), self.right(-j)]))
 
-def opEq(ops1, ops2):
-    if len(ops1) != len(ops2): return False
-    for i, op in enumerate(ops1):
-        if op is not ops2[i]: return False
-    return True
+class AsStr(object):
+    import_from_mixin(BF)
+    def unit(self): return ""
+    def join(self, l, r): return l + r
+    def plus(self, i): return '+' * i if i > 0 else '-' * -i
+    def right(self, i): return '>' * i if i > 0 else '<' * -i
+    def loop(self, bfs): return '[' + bfs + ']'
+    def input(self): return ','
+    def output(self): return '.'
 
-def printableProgram(pc, loop): return asStr(loop.ops[pc])
-jitdriver = JitDriver(greens=['pc', 'loop'], reds=['position', 'tape'],
-                      get_printable_location=printableProgram)
+jitdriver = JitDriver(greens=['op'], reds=['position', 'tape'])
 
-class Op(object):
-    _immutable_fields_ = "width", "imm"
-    def isConstAdd(self, imm): return False
+class Op(object): _immutable_ = True
 
 class _Input(Op):
-    def asBF(self, pieces): pieces.append(',')
+    _immutable_ = True
     def runOn(self, tape, position):
         tape[position] = ord(os.read(0, 1)[0])
         return position
 Input = _Input()
 class _Output(Op):
-    def asBF(self, pieces): pieces.append('.')
+    _immutable_ = True
     def runOn(self, tape, position):
         os.write(1, chr(tape[position]))
         return position
 Output = _Output()
-def addAsBF(i): return '+' * i if i > 0 else '-' * -i
 class Add(Op):
+    _immutable_ = True
     _immutable_fields_ = "imm",
     def __init__(self, imm): self.imm = imm
-    def asBF(self, pieces): pieces.append(addAsBF(self.imm))
-    def isConstAdd(self, imm): return self.imm == imm
     def runOn(self, tape, position):
         tape[position] += self.imm
         return position
-addCache = {}
-def add(imm):
-    if imm not in addCache: addCache[imm] = Add(imm)
-    return addCache[imm]
-Inc = add(1)
-Dec = add(-1)
-def shiftAsBF(i): return '>' * i if i > 0 else '<' * -i
 class Shift(Op):
+    _immutable_ = True
     _immutable_fields_ = "width",
     def __init__(self, width): self.width = width
-    def asBF(self, pieces): pieces.append(shiftAsBF(self.width))
     def runOn(self, tape, position): return position + self.width
-shiftCache = {}
-def shift(width):
-    if width not in shiftCache: shiftCache[width] = Shift(width)
-    return shiftCache[width]
-Left = shift(-1)
-Right = shift(1)
 class _Zero(Op):
-    def asBF(self, pieces): pieces.append('[-]')
+    _immutable_ = True
     def runOn(self, tape, position):
         tape[position] = 0
         return position
 Zero = _Zero()
 class ZeroScaleAdd(Op):
+    _immutable_ = True
     _immutable_fields_ = "offset", "scale"
     def __init__(self, offset, scale):
         self.offset = offset
         self.scale = scale
-    def asBF(self, pieces):
-        pieces.extend(["[-", shiftAsBF(self.offset), addAsBF(self.scale),
-                       shiftAsBF(-self.offset), "]"])
     def runOn(self, tape, position):
         tape[position + self.offset] += tape[position] * self.scale
         tape[position] = 0
         return position
-scaleAddCache = {}
-def scaleAdd(offset, scale):
-    if (offset, scale) not in scaleAddCache:
-        scaleAddCache[offset, scale] = ZeroScaleAdd(offset, scale)
-    return scaleAddCache[offset, scale]
 class ZeroScaleAdd2(Op):
+    _immutable_ = True
     _immutable_fields_ = "offset1", "scale1", "offset2", "scale2"
     def __init__(self, offset1, scale1, offset2, scale2):
         self.offset1 = offset1
         self.scale1 = scale1
         self.offset2 = offset2
         self.scale2 = scale2
-    def asBF(self, pieces):
-        delta = self.offset2 - self.offset1
-        pieces.extend(["[-", shiftAsBF(self.offset1), addAsBF(self.scale1),
-                       shiftAsBF(delta), addAsBF(self.scale2),
-                       shiftAsBF(-self.offset2), "]"])
     def runOn(self, tape, position):
         tape[position + self.offset1] += tape[position] * self.scale1
         tape[position + self.offset2] += tape[position] * self.scale2
         tape[position] = 0
         return position
-scaleAdd2Cache = {}
-def scaleAdd2(offset1, scale1, offset2, scale2):
-    k = offset1, scale1, offset2, scale2
-    if k not in scaleAdd2Cache:
-        scaleAdd2Cache[k] = ZeroScaleAdd2(offset1, scale1, offset2, scale2)
-    return scaleAdd2Cache[k]
 class Loop(Op):
+    _immutable_ = True
+    _immutable_fields_ = "op",
+    def __init__(self, op): self.op = op
+    def runOn(self, tape, position):
+        op = self.op
+        while tape[position]:
+            jitdriver.jit_merge_point(op=op, position=position, tape=tape)
+            position = op.runOn(tape, position)
+        return position
+class Seq(Op):
+    _immutable_ = True
     _immutable_fields_ = "ops[*]",
     def __init__(self, ops): self.ops = ops
-    def asBF(self, pieces):
-        pieces.append("[")
-        for op in self.ops: op.asBF(pieces)
-        pieces.append("]")
+    @unroll_safe
     def runOn(self, tape, position):
-        while tape[position]:
-            i = 0
-            while i < len(self.ops):
-                jitdriver.jit_merge_point(pc=i, loop=self,
-                                          position=position, tape=tape)
-                position = self.ops[i].runOn(tape, position)
-                i += 1
+        for op in self.ops: position = op.runOn(tape, position)
         return position
-loopCache = []
-def loop(ops):
-    for l in loopCache:
-        if opEq(ops, l.ops): return l
-    rv = Loop(ops)
-    loopCache.append(rv)
-    return rv
 
-def peep(ops):
-    if not ops: return ops
-    rv = []
-    temp = ops[0]
-    for op in ops[1:]:
-        if isinstance(temp, Loop) and isinstance(op, Loop): continue
-        elif isinstance(op, Shift) and op.width == 0: continue
-        elif op.isConstAdd(0): continue
-        elif isinstance(temp, Shift) and isinstance(op, Shift):
-            temp = shift(temp.width + op.width)
-        elif isinstance(temp, Add) and isinstance(op, Add):
-            temp = add(temp.imm + op.imm)
-        elif isinstance(temp, Add) and op is Zero: temp = Zero
-        else:
-            rv.append(temp)
-            temp = op
-    rv.append(temp)
-    return rv
+class AsOps(object):
+    import_from_mixin(BF)
+    def unit(self): return Shift(0)
+    def join(self, l, r):
+        if isinstance(l, Seq) and isinstance(r, Seq):
+            return Seq(l.ops + r.ops)
+        elif isinstance(l, Seq): return Seq(l.ops + [r])
+        elif isinstance(r, Seq): return Seq([l] + r.ops)
+        else: return Seq([l, r])
+    def plus(self, i): return Add(i)
+    def right(self, i): return Shift(i)
+    def loop(self, bfs): return Loop(bfs)
+    def input(self): return Input
+    def output(self): return Output
+    def zero(self): return Zero
+    def scalemove(self, i, s): return ZeroScaleAdd(i, s)
+    def scalemove2(self, i, s, j, t): return ZeroScaleAdd2(i, s, j, t)
 
-def oppositeShifts(op1, op2):
-    if not isinstance(op1, Shift) or not isinstance(op2, Shift): return False
-    return op1.width == -op2.width
+class AbstractDomain(object): pass
+meh, aLoop, aZero, theIdentity, anAdd, aRight = [AbstractDomain() for _ in range(6)]
 
-def oppositeShifts2(op1, op2, op3):
-    if not isinstance(op1, Shift) or not isinstance(op2, Shift) or not isinstance(op3, Shift):
-        return False
-    return op1.width + op2.width + op3.width == 0
+def makePeephole(cls):
+    # Optimization domain: tuple of underlying domain, abstract tag, integer
+    # (integer only used for adds and shifts)
+    domain = cls()
+    def stripDomain(bfs): return domain.joinList([t[0] for t in bfs])
+    def isConstAdd(bf, i): return bf[1] is anAdd and bf[2] == i
+    def oppositeShifts(bf1, bf2):
+        return bf1[1] is bf2[1] is aRight and bf1[2] == -bf2[2]
+    def oppositeShifts2(bf1, bf2, bf3):
+        return (bf1[1] is bf2[1] is bf3[1] is aRight and
+                bf1[2] + bf2[2] + bf3[2] == 0)
 
-def loopish(ops):
-    if len(ops) == 1 and (ops[0].isConstAdd(-1) or ops[0].isConstAdd(1)):
-        return Zero
-    elif (len(ops) == 4 and
-          ops[0].isConstAdd(-1) and isinstance(ops[2], Add) and
-          oppositeShifts(ops[1], ops[3])):
-        return scaleAdd(ops[1].width, ops[2].imm)
-    elif (len(ops) == 4 and
-          ops[3].isConstAdd(-1) and isinstance(ops[1], Add) and
-          oppositeShifts(ops[0], ops[2])):
-        return scaleAdd(ops[0].width, ops[1].imm)
-    elif (len(ops) == 6 and
-          ops[0].isConstAdd(-1) and isinstance(ops[2], Add) and isinstance(ops[4], Add) and
-          oppositeShifts2(ops[1], ops[3], ops[5])):
-        return scaleAdd2(ops[1].width, ops[2].imm, ops[1].width + ops[3].width, ops[4].imm)
-    elif (len(ops) == 6 and
-          ops[5].isConstAdd(-1) and isinstance(ops[1], Add) and isinstance(ops[3], Add) and
-          oppositeShifts2(ops[0], ops[2], ops[4])):
-        return scaleAdd2(ops[0].width, ops[1].imm, ops[0].width + ops[2].width, ops[3].imm)
-    return loop(ops[:])
+    class Peephole(object):
+        import_from_mixin(BF)
+        def unit(self): return []
+        # Peephole optimizations according to the standard monoid.
+        def join(self, l, r):
+            if not l: return r
+            rv = l[:]
+            bfHead, adHead, immHead = rv.pop()
+            for bf, ad, imm in r:
+                if ad is theIdentity: continue
+                elif adHead is aLoop and ad is aLoop: continue
+                elif adHead is anAdd and ad is aZero:
+                    bfHead, adHead, immHead = bf, ad, imm
+                elif adHead is anAdd and ad is anAdd:
+                    immHead += imm
+                    if immHead: bfHead = domain.plus(immHead)
+                    else:
+                        bfHead = domain.unit()
+                        adHead = theIdentity
+                elif adHead is aRight and ad is aRight:
+                    immHead += imm
+                    if immHead: bfHead = domain.right(immHead)
+                    else:
+                        bfHead = domain.unit()
+                        adHead = theIdentity
+                else:
+                    rv.append((bfHead, adHead, immHead))
+                    bfHead, adHead, immHead = bf, ad, imm
+            rv.append((bfHead, adHead, immHead))
+            return rv
+        def plus(self, i): return [(domain.plus(i), anAdd, i)]
+        def right(self, i): return [(domain.right(i), aRight, i)]
+        # Loopish pattern recognition.
+        def loop(self, bfs):
+            if len(bfs) == 1:
+                bf, ad, imm = bfs[0]
+                if ad is anAdd and imm in (1, -1):
+                    return [(domain.zero(), aZero, 0)]
+            elif len(bfs) == 4:
+                if (isConstAdd(bfs[0], -1) and
+                    bfs[2][1] is anAdd and
+                    oppositeShifts(bfs[1], bfs[3])):
+                    return [(domain.scalemove(bfs[1][2], bfs[2][2]), aLoop, 0)]
+                if (isConstAdd(bfs[3], -1) and
+                    bfs[1][1] is anAdd and
+                    oppositeShifts(bfs[0], bfs[2])):
+                    return [(domain.scalemove(bfs[0][2], bfs[1][2]), aLoop, 0)]
+            elif len(bfs) == 6:
+                if (isConstAdd(bfs[0], -1) and
+                    bfs[2][1] is bfs[4][1] is anAdd and
+                    oppositeShifts2(bfs[1], bfs[3], bfs[5])):
+                    return [(domain.scalemove2(bfs[1][2], bfs[2][2],
+                                               bfs[1][2] + bfs[3][2],
+                                               bfs[4][2]), aLoop, 0)]
+                if (isConstAdd(bfs[5], -1) and
+                    bfs[1][1] is bfs[3][1] is anAdd and
+                    oppositeShifts2(bfs[0], bfs[2], bfs[4])):
+                    return [(domain.scalemove2(bfs[0][2], bfs[1][2],
+                                               bfs[0][2] + bfs[2][2],
+                                               bfs[3][2]), aLoop, 0)]
+            return [(domain.loop(stripDomain(bfs)), aLoop, 0)]
+        def input(self): return [(domain.input(), meh, 0)]
+        def output(self): return [(domain.output(), meh, 0)]
+    return Peephole, stripDomain
 
-parseTable = {
-    ',': Input, '.': Output,
-    '+': Inc, '-': Dec,
-    '<': Left, '>': Right,
-}
-def parse(s):
-    ops = [[]]
+AsStr, finishStr = makePeephole(AsStr)
+AsOps, finishOps = makePeephole(AsOps)
 
-    for char in s:
-        if char in parseTable: ops[-1].append(parseTable[char])
-        elif char == '[': ops.append([])
-        elif char == ']':
-            loop = loopish(peep(ops.pop()))
-            ops[-1].append(loop)
-
-    rv = peep(ops.pop())
-    # Slice off initial loops.
+@specialize.argtype(1)
+def parse(s, domain):
+    ops = [domain.unit()]
     i = 0
-    while i < len(rv) and isinstance(rv[i], Loop): i += 1
-    return rv[i:]
+
+    # Skip initial comment-loops; this is easier than adding a special case to
+    # the optimizers for non-obvious reasons.
+    while i < len(s) and s[i] == '[':
+        depth = 1
+        while depth:
+            i += 1
+            if s[i] == '[': depth += 1
+            elif s[i] == ']': depth -= 1
+
+    while i < len(s):
+        char = s[i]
+        if char == '+': ops[-1] = domain.join(ops[-1], domain.plus(1))
+        elif char == '-': ops[-1] = domain.join(ops[-1], domain.plus(-1))
+        elif char == '<': ops[-1] = domain.join(ops[-1], domain.right(-1))
+        elif char == '>': ops[-1] = domain.join(ops[-1], domain.right(1))
+        elif char == ',': ops[-1] = domain.join(ops[-1], domain.input())
+        elif char == '.': ops[-1] = domain.join(ops[-1], domain.output())
+        elif char == '[': ops.append(domain.unit())
+        elif char == ']':
+            loop = domain.loop(ops.pop())
+            ops[-1] = domain.join(ops[-1], loop)
+        i += 1
+
+    return ops.pop()
 
 def entryPoint(argv):
     if len(argv) < 2 or "-h" in argv:
@@ -217,15 +264,12 @@ def entryPoint(argv):
         path = argv[3]
     elif argv[1] == "-o": path = argv[2]
     else: path = argv[1]
-    with open(path) as handle: program = parse(handle.read())
+    with open(path) as handle: text = handle.read()
     if "-o" in argv:
-        for op in program:
-            print asStr(op), "",
-        print
+        print finishStr(parse(text, AsStr()))
         return 0
     tape = bytearray("\x00" * cells)
-    position = 0
-    for op in program: position = op.runOn(tape, position)
+    finishOps(parse(text, AsOps())).runOn(tape, 0)
     return 0
 
 def target(*args): return entryPoint, None
