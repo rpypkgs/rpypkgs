@@ -34,10 +34,11 @@ let
     rev = "5cfe4daeb8feb6d0fae268212c884d369eac634e";
     sha256 = "sha256-0G/jbEQrC5sqJ9mQylC0eaBQSweXS49DPdSfQRHQWRM=";
   };
-  rsdlSrc = fetchPypi {
-    pname = "rsdl";
-    version = "0.4.2";
-    sha256 = "sha256-SWApgO/lRMUOfx7wCJ6F6EezpNrzbh4CHCMI7y/Gi6U=";
+  rsdlSrc = fetchFromGitHub {
+    owner = "rpypkgs";
+    repo = "rsdl";
+    rev = "34b4ebb15d9c4595991201adff42bed6864412fe";
+    sha256 = "sha256-GZapKcF6kCq+wAWnAGo8UG5eJMdMwKv8khfVBzrpvgY=";
   };
 in {
   appdirs = mkUnpackHook "appdirs" ''
@@ -54,7 +55,6 @@ in {
     cp -r ${rplySrc}/rply/ .
   '';
   rsdl = mkUnpackHook "rsdl" ''
-    tar -k -zxf ${rsdlSrc}
-    mv rsdl-0.4.2/rsdl/ .
+    cp -r ${rsdlSrc}/rsdl/ .
   '';
 }
