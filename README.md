@@ -65,6 +65,36 @@ This flake does not support cross-compilation. This may be a permanent
 restriction, since RPython generally translates binaries for its build system
 only.
 
+## Using
+
+The main entrypoint for downstream users will be `libs.mkRPythonDerivation`,
+which takes an attrset for RPython-specific configuration and a
+derivation-like attrset for standard Nix configuration. The signature for the
+RPython-specific configuration is:
+
+attribute | description | default
+---|---|---
+entrypoint | The Python module to translate | -
+binName | The binary name | -
+binInstallName | The installation name for the binary | `binName`
+withLibs | Pure-Python 2.7 libraries to install prior to translation; see "Libraries" below | `[]`
+optLevel | "jit" to build a JIT compiler, "2" to disable JIT | "jit"
+transFlags | Translator flags, e.g. stackless support | ""
+interpFlags | Interpreter flags, e.g. enabling builtin modules | ""
+usesPyPyCode | Whether translation depends on `pypy.*` modules | `false`
+
+### Libraries
+
+The following libraries are available:
+
+* appdirs
+* macropy
+* pycparser
+* rply
+* rsdl
+
+`rply` requires `appdirs`.
+
 ## Contributions
 
 Pull requests are welcome.
