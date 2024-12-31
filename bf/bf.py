@@ -154,6 +154,7 @@ def makePeephole(cls):
     def oppositeShifts2(bf1, bf2, bf3):
         return (bf1[1] is bf2[1] is bf3[1] is aRight and
                 bf1[2] + bf2[2] + bf3[2] == 0)
+    def isALoop(ad): return ad is aZero or ad is aLoop
 
     class Peephole(object):
         import_from_mixin(BF)
@@ -165,7 +166,7 @@ def makePeephole(cls):
             bfHead, adHead, immHead = rv.pop()
             for bf, ad, imm in r:
                 if ad is theIdentity: continue
-                elif adHead is aLoop and ad is aLoop: continue
+                elif isALoop(adHead) and isALoop(ad): continue
                 elif adHead is theIdentity:
                     bfHead, adHead, immHead = bf, ad, imm
                 elif adHead is anAdd and ad is aZero:
