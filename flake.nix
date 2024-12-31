@@ -233,10 +233,10 @@
           src = ./1brc;
         };
         bfShare = pkgs.fetchFromGitHub {
-          owner = "MG-K";
-          repo = "pypy-tutorial-ko";
-          rev = "20dd2e807014c75b53d6ed152fe38cb7af171301";
-          sha256 = "sha256-7YINSBwuEsuPlCW9Euo0Rs/0Nc6z1n+6g+Wtk332fb4=";
+          owner = "cwfitzgerald";
+          repo = "brainfuck-benchmark";
+          rev = "2e10658581ce0c81b02e858e292984cf8e5df96a";
+          sha256 = "sha256-S5RR1CcWzQs+LshHH4DDc24g5z9/YFz/BGd5jOJqjOo=";
         };
         bf = mkRPythonDerivation {
           entrypoint = "bf.py";
@@ -250,7 +250,7 @@
 
           postInstall = ''
             mkdir -p $out/share/
-            cp ${bfShare}/*.b $out/share/
+            cp ${bfShare}/benches/*.b $out/share/
           '';
 
           meta = {
