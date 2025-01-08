@@ -57,91 +57,93 @@
         };
 
         # Generic builder for RPython. Takes three levels of configuration.
-        mkRPythonMaker = { py2 }: {
-          # The Python module to start at, and the resulting binary name.
-          entrypoint, binName,
-          # What name to install the binary as.
-          binInstallName ? binName,
-          # Pure-Python libraries to be "installed" for Python 2.7 prior to
-          # translation. See libs.nix for available libraries.
-          withLibs ? (ls: []),
-          # Whether to build a JIT, as well as some other optimizations.
-          # Usually should be "jit" (JIT on) or "2" (JIT off).
-          optLevel ? "jit",
-          # Extra flags for the translator, e.g. to enable stackless.
-          transFlags ? "",
-          # Extra flags for the interpreter, e.g. to enable builtin modules.
-          interpFlags ? "",
-          # Whether translation depends on anything from PyPy's source code
-          # (pypy.*) which isn't available in RPython (rpython.*) or Py (py.*).
-          # The latter packages are always available.
-          usesPyPyCode ? false,
-        }: attrs: let
-          buildInputs = builtins.concatLists [
-            (attrs.buildInputs or [])
-            ([ pkgs.libffi ])
-            (pkgs.lib.optionals pkgs.stdenv.isDarwin (with pkgs; [ libunwind Security ]))
-          ];
-        in pkgs.stdenv.mkDerivation (attrs // {
-          # Ensure that RPython binaries don't have Python runtime dependencies.
-          # disallowedReferences = [ py2 ];
-          # To that end, don't automatically add references to Python modules!
-          dontPatchShebangs = true;
+        mkRPythonMaker = { py2 }: let
+          maker = {
+            # The Python module to start at, and the resulting binary name.
+            entrypoint, binName,
+            # What name to install the binary as.
+            binInstallName ? binName,
+            # Pure-Python libraries to be "installed" for Python 2.7 prior to
+            # translation. See libs.nix for available libraries.
+            withLibs ? (ls: []),
+            # Whether to build a JIT, as well as some other optimizations.
+            # Usually should be "jit" (JIT on) or "2" (JIT off).
+            optLevel ? "jit",
+            # Extra flags for the translator, e.g. to enable stackless.
+            transFlags ? "",
+            # Extra flags for the interpreter, e.g. to enable builtin modules.
+            interpFlags ? "",
+            # Whether translation depends on anything from PyPy's source code
+            # (pypy.*) which isn't available in RPython (rpython.*) or Py (py.*).
+            # The latter packages are always available.
+            usesPyPyCode ? false,
+          }: attrs: let
+            buildInputs = builtins.concatLists [
+              (attrs.buildInputs or [])
+              ([ pkgs.libffi ])
+              (pkgs.lib.optionals pkgs.stdenv.isDarwin (with pkgs; [ libunwind Security ]))
+            ];
+          in pkgs.stdenv.mkDerivation (attrs // {
+            # Ensure that RPython binaries don't have Python runtime dependencies.
+            # disallowedReferences = [ py2 ];
+            # To that end, don't automatically add references to Python modules!
+            dontPatchShebangs = true;
 
-          inherit buildInputs;
-          nativeBuildInputs = builtins.concatLists [
-            (attrs.nativeBuildInputs or [])
-            (withLibs libs)
-            ([ pkgs.pkg-config ])
-          ];
+            inherit buildInputs;
+            nativeBuildInputs = builtins.concatLists [
+              (attrs.nativeBuildInputs or [])
+              (withLibs libs)
+              ([ pkgs.pkg-config ])
+            ];
 
-          # Set up library search paths for translation.
-          C_INCLUDE_PATH = pkgs.lib.makeSearchPathOutput "dev" "include" buildInputs;
-          LIBRARY_PATH = pkgs.lib.makeLibraryPath buildInputs;
-          LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath
-            (builtins.filter (x : x.outPath != pkgs.stdenv.cc.libc.outPath or "") buildInputs);
+            # Set up library search paths for translation.
+            C_INCLUDE_PATH = pkgs.lib.makeSearchPathOutput "dev" "include" buildInputs;
+            LIBRARY_PATH = pkgs.lib.makeLibraryPath buildInputs;
+            LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath
+              (builtins.filter (x : x.outPath != pkgs.stdenv.cc.libc.outPath or "") buildInputs);
 
-          # conftest patches are required to build without pytest.
-          # sre patches are required to build without pypy/ src.
-          postPatch = ''
-            cp -r ${pypySrc}/{rpython,py} .
-            ${pkgs.lib.optionalString usesPyPyCode "cp -r ${pypySrc}/pypy ${pypySrc}/lib-python ."}
-            chmod -R u+w rpython/
+            # conftest patches are required to build without pytest.
+            # sre patches are required to build without pypy/ src.
+            postPatch = ''
+              cp -r ${pypySrc}/{rpython,py} .
+              ${pkgs.lib.optionalString usesPyPyCode "cp -r ${pypySrc}/pypy ${pypySrc}/lib-python ."}
+              chmod -R u+w rpython/
 
-            sed -i -e 's_, pytest__' rpython/conftest.py
-            sed -i -e '/hookimpl/d' rpython/conftest.py
+              sed -i -e 's_, pytest__' rpython/conftest.py
+              sed -i -e '/hookimpl/d' rpython/conftest.py
 
-            sed -i -e 's,raise ImportError,pass;,' rpython/rlib/rsre/rsre_constants.py
-          '';
+              sed -i -e 's,raise ImportError,pass;,' rpython/rlib/rsre/rsre_constants.py
+            '';
 
-          # https://github.com/pypy/pypy/blob/main/rpython/translator/goal/translate.py
-          # For rply, set XDG cache to someplace writeable.
-          # Don't run debugger on failure.
-          # Use as many cores as Nix tells us to use.
-          buildPhase = ''
-            runHook preBuild
+            # https://github.com/pypy/pypy/blob/main/rpython/translator/goal/translate.py
+            # For rply, set XDG cache to someplace writeable.
+            # Don't run debugger on failure.
+            # Use as many cores as Nix tells us to use.
+            buildPhase = ''
+              runHook preBuild
 
-            export XDG_CACHE_HOME=$TMPDIR
+              export XDG_CACHE_HOME=$TMPDIR
 
-            ${py2} rpython/bin/rpython \
-              --batch \
-              --make-jobs="$NIX_BUILD_CORES" \
-              -O${optLevel} \
-              ${transFlags} \
-              ${entrypoint} ${interpFlags}
+              ${py2} rpython/bin/rpython \
+                --batch \
+                --make-jobs="$NIX_BUILD_CORES" \
+                -O${optLevel} \
+                ${transFlags} \
+                ${entrypoint} ${interpFlags}
 
-            runHook postBuild
-          '';
+              runHook postBuild
+            '';
 
-          installPhase = ''
-            runHook preInstall
+            installPhase = ''
+              runHook preInstall
 
-            mkdir -p $out/bin/
-            cp ${binName} $out/bin/${binInstallName}
+              mkdir -p $out/bin/
+              cp ${binName} $out/bin/${binInstallName}
 
-            runHook postInstall
-          '';
-        });
+              runHook postInstall
+            '';
+          });
+        in maker;
 
         # Phase 1: Build PyPy for Python 2.7 using CPython.
         mkRPythonBootstrap = mkRPythonMaker {
@@ -444,39 +446,6 @@
           rev = "79f33c8a2376ce25288fe5b382a0e79f8f529472";
           sha256 = "sha256-R8MKNaZgOyZct8BCcK/ILQtyBFLv5PvtyLsrB0Dh5uc=";
         };
-        pysom = mkRPythonDerivation {
-          entrypoint = "src/main_rpython.py";
-          # XXX hardcoded
-          binName = "som-ast-jit";
-        } {
-          pname = "pysom";
-          version = "23.10";
-
-          src = pkgs.fetchFromGitHub {
-            owner = "SOM-st";
-            repo = "PySOM";
-            rev = "b7acae57068a02418f334fd84a209ac485ba7b98";
-            sha256 = "sha256-OwYVO/o8mXSwntMPZNaGXlrCFp/iZEO5q7Gj4DAq6bY=";
-          };
-
-          # XXX could also be "BC"
-          SOM_INTERP = "AST";
-
-          postInstall = ''
-            mkdir -p $out/share/
-            cp -H -r ${coreLib}/{Smalltalk,Examples,TestSuite} $out/share/
-          '';
-
-          doInstallCheck = true;
-          installCheckPhase = ''
-            $out/bin/som-ast-jit -cp $out/share/Smalltalk $out/share/TestSuite/TestHarness.som
-          '';
-
-          meta = {
-            description = "The Simple Object Machine Smalltalk implemented in Python";
-            license = pkgs.lib.licenses.mit;
-          };
-        };
         pyrolog = mkRPythonDerivation {
           entrypoint = "targetprologstandalone.py";
           binName = "pyrolog-c";
@@ -523,14 +492,55 @@
             license = pkgs.lib.licenses.mit;
           };
         };
+
+        # Packages with multiple build-time configurations.
+        mkPysom = flavor: let
+          SOM_INTERP = pkgs.lib.toUpper flavor;
+          # XXX hardcoded for JIT
+          binName = "som-${flavor}-jit";
+        in mkRPythonDerivation {
+          entrypoint = "src/main_rpython.py";
+          inherit binName;
+        } {
+          pname = "pysom";
+          version = "23.10";
+
+          src = pkgs.fetchFromGitHub {
+            owner = "SOM-st";
+            repo = "PySOM";
+            rev = "b7acae57068a02418f334fd84a209ac485ba7b98";
+            sha256 = "sha256-OwYVO/o8mXSwntMPZNaGXlrCFp/iZEO5q7Gj4DAq6bY=";
+          };
+
+          inherit SOM_INTERP;
+
+          postInstall = ''
+            mkdir -p $out/share/
+            cp -H -r ${coreLib}/{Smalltalk,Examples,TestSuite} $out/share/
+          '';
+
+          doInstallCheck = true;
+          installCheckPhase = ''
+            $out/bin/${binName} -cp $out/share/Smalltalk $out/share/TestSuite/TestHarness.som
+          '';
+
+          meta = {
+            description = "The Simple Object Machine Smalltalk implemented in Python";
+            license = pkgs.lib.licenses.mit;
+          };
+        };
+        pysom-ast = mkPysom "ast";
+        pysom-bc = mkPysom "bc";
       in {
-        checks = { inherit divspl pysom pypy2 pypy3; };
+        checks = { inherit divspl pysom-ast pysom-bc pypy2 pypy3; };
         lib = { inherit mkRPythonDerivation; };
-        packages = {
-          inherit r1brc bf dcpu16py divspl hippyvm icbink pixie plang pycket pydgin pygirl pypy2 pypy3 pysom pyrolog rsqueak topaz;
+        packages = rec {
+          inherit r1brc bf dcpu16py divspl hippyvm icbink pixie plang pycket
+            pydgin pygirl pypy2 pypy3 pysom-ast pysom-bc pyrolog rsqueak topaz;
           # Export bootstrap PyPy. It is just as fast as standard PyPy, but
           # missing some parts of the stdlib.
           inherit pypy2Minimal;
+          pysom = pysom-bc;
         };
         devShells.default = pkgs.mkShell {
           packages = builtins.filter (p: !p.meta.broken) (with pkgs; [

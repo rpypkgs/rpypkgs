@@ -17,7 +17,7 @@ Prolog | `pyrolog`
 Python 2.7 | `pypy2`
 Python 3.10 | `pypy3`
 Racket Scheme | `pycket`
-SOM Smalltalk | `pysom`
+SOM Smalltalk | `pysom-ast`, `pysom-bc`
 Squeak | `rsqueak`
 Ruby | `topaz`
 
@@ -40,7 +40,7 @@ offers checks for the following interpreters:
 Language | Attribute
 ---|---
 DIVSPL | `divspl`
-SOM Smalltalk | `pysom`
+SOM Smalltalk | `pysom-ast`, `pysom-bc`
 Python 2.7 | `pypy2`
 Python 3.10 | `pypy3`
 
@@ -82,6 +82,10 @@ optLevel | "jit" to build a JIT compiler, "2" to disable JIT | "jit"
 transFlags | Translator flags, e.g. stackless support | ""
 interpFlags | Interpreter flags, e.g. enabling builtin modules | ""
 usesPyPyCode | Whether translation depends on `pypy.*` modules | `false`
+
+Any patching can be done during `prePatch`. Any additional installation can be
+done during `postInstall`. Checks can be done during `installCheckPhase` by
+setting `doCheckInstall = true`.
 
 ### Libraries
 
