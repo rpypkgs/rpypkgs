@@ -106,7 +106,7 @@
             # sre patches are required to build without pypy/ src.
             postPatch = ''
               cp -r ${pypySrc}/{rpython,py} .
-              ${pkgs.lib.optionalString usesPyPyCode "cp -r ${pypySrc}/pypy ${pypySrc}/lib-python ."}
+              ${pkgs.lib.optionalString usesPyPyCode "cp -r ${pypySrc}/dotviewer ${pypySrc}/pypy ${pypySrc}/lib-python ."}
               chmod -R u+w rpython/
 
               sed -i -e 's_, pytest__' rpython/conftest.py
@@ -531,12 +531,45 @@
         };
         pysom-ast = mkPysom "ast";
         pysom-bc = mkPysom "bc";
+
+        mkPydrofoil = arch: mkRPythonDerivation {
+          entrypoint = "${arch}/target${arch}.py";
+          binName = "target${arch}-c";
+          binInstallName = "pydrofoil-${arch}";
+          optLevel = "2";
+          usesPyPyCode = true;
+          withLibs = ls: [ ls.appdirs ls.rply ];
+        } {
+          pname = "pydrofoil";
+          version = "2025.1.7";
+
+          src = pkgs.fetchFromGitHub {
+            owner = "pydrofoil";
+            repo = "pydrofoil";
+            rev = "ba40be733a5a8e64ba7b7ac1f819f570ab5744ef";
+            sha256 = "sha256-l2/csT4qeJ372rD3Xni5+H+S3hPjYqMuLFaSvQAGvEU=";
+          };
+
+          preBuild = ''
+            make pydrofoil/softfloat/SoftFloat-3e/build/Linux-RISCV-GCC/softfloat.o
+          '';
+
+          meta = {
+            description = "A fast RISC-V emulator based on the RISC-V Sail model, and an experimental ARM one";
+            license = pkgs.lib.licenses.mit;
+          };
+        };
+        pydrofoil-arm = mkPydrofoil "arm";
+        pydrofoil-cheriot = mkPydrofoil "cheriot";
+        pydrofoil-riscv = mkPydrofoil "riscv";
       in {
         checks = { inherit divspl pysom-ast pysom-bc pypy2 pypy3; };
         lib = { inherit mkRPythonDerivation; };
         packages = rec {
           inherit r1brc bf dcpu16py divspl hippyvm icbink pixie plang pycket
-            pydgin pygirl pypy2 pypy3 pysom-ast pysom-bc pyrolog rsqueak topaz;
+            pydgin pygirl pypy2 pypy3 pyrolog rsqueak topaz;
+          inherit pydrofoil-arm pydrofoil-cheriot pydrofoil-riscv;
+          inherit pysom-ast pysom-bc;
           # Export bootstrap PyPy. It is just as fast as standard PyPy, but
           # missing some parts of the stdlib.
           inherit pypy2Minimal;
