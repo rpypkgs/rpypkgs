@@ -532,6 +532,27 @@
         pysom-ast = mkPysom "ast";
         pysom-bc = mkPysom "bc";
 
+        sail = pkgs.ocamlPackages.callPackage ./sail.nix {};
+        isla-sail = pkgs.ocamlPackages.buildDunePackage rec {
+          pname = "sail_isla_backend";
+          version = "2024";
+
+          src = pkgs.fetchFromGitHub {
+            owner = "rems-project";
+            repo = "isla";
+            rev = "72e0045d68412f04bff3947a03fe515b84ca1301";
+            sha256 = "sha256-FW7LOgiqtHyMZ84aKeVOtc2ai7KQ6S+yiCFCjRRye7Q=";
+          };
+          sourceRoot = "${src.name}/isla-sail";
+
+          buildInputs = [ pkgs.makeWrapper pkgs.ocamlPackages.base64 sail ];
+
+          postInstall = ''
+            mkdir -p $out/bin/
+            makeWrapper ${sail}/bin/sail $out/bin/isla-sail --add-flags \
+              "--plugin $out/share/libsail/plugins/sail_plugin_isla.cmxs --isla --verbose 1"
+          '';
+        };
         mkPydrofoil = arch: mkRPythonDerivation {
           entrypoint = "${arch}/target${arch}.py";
           binName = "target${arch}-c";
@@ -549,6 +570,8 @@
             rev = "ba40be733a5a8e64ba7b7ac1f819f570ab5744ef";
             sha256 = "sha256-l2/csT4qeJ372rD3Xni5+H+S3hPjYqMuLFaSvQAGvEU=";
           };
+
+          buildInputs = [ isla-sail ];
 
           preBuild = ''
             make pydrofoil/softfloat/SoftFloat-3e/build/Linux-RISCV-GCC/softfloat.o
