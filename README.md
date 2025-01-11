@@ -17,6 +17,7 @@ Prolog | `pyrolog`
 Python 2.7 | `pypy2`
 Python 3.10 | `pypy3`
 Racket Scheme | `pycket`
+RISC-V | `pydrofoil-riscv`
 SOM Smalltalk | `pysom-ast`, `pysom-bc`
 Squeak | `rsqueak`
 Ruby | `topaz`
@@ -41,6 +42,7 @@ offers checks for the following interpreters:
 Language | Attribute
 ---|---
 DIVSPL | `divspl`
+RISC-V | `pydrofoil-riscv`
 SOM Smalltalk | `pysom-ast`, `pysom-bc`
 Python 2.7 | `pypy2`
 Python 3.10 | `pypy3`

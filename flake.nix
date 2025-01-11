@@ -553,6 +553,31 @@
               "--plugin $out/share/libsail/plugins/sail_plugin_isla.cmxs --isla --verbose 1"
           '';
         };
+        sail-arm = pkgs.stdenv.mkDerivation rec {
+          name = "sail-arm";
+          version = "9.4a";
+
+          src = pkgs.fetchFromGitHub {
+            owner = "pydrofoil";
+            repo = "sail-arm";
+            rev = "d43f3f4c021fad07564f6b1e5bc9bd7de33abe4f";
+            sha256 = "sha256-Ha4+KKWZ/7h7m2aPAos0F0X1hk/xUduN8EzrXbquHZE=";
+          };
+          sourceRoot = "${src.name}/arm-v9.4-a";
+
+          nativeBuildInputs = [ isla-sail ];
+          buildPhase = "make gen_ir";
+          installPhase = ''
+            mkdir -p $out/share/
+            cp -r ir/ $out/share/
+          '';
+        };
+        sail-riscv = pkgs.fetchFromGitHub {
+          owner = "riscv";
+          repo = "sail-riscv";
+          rev = "b48b40e461f336df3afeb904d1f3c5324f4cd722";
+          sha256 = "sha256-7PZNNUMaCZEBf0lOCqkquewRgZPooBOjIbGF7JlLnEo=";
+        };
         mkPydrofoil = arch: mkRPythonDerivation {
           entrypoint = "${arch}/target${arch}.py";
           binName = "target${arch}-c";
@@ -561,7 +586,7 @@
           usesPyPyCode = true;
           withLibs = ls: [ ls.appdirs ls.rply ];
         } {
-          pname = "pydrofoil";
+          pname = "pydrofoil-${arch}";
           version = "2025.1.7";
 
           src = pkgs.fetchFromGitHub {
@@ -575,7 +600,11 @@
 
           preBuild = ''
             make pydrofoil/softfloat/SoftFloat-3e/build/Linux-RISCV-GCC/softfloat.o
+            # cp ${sail-arm}/share/ir/armv9.ir arm/
           '';
+
+          doInstallCheck = arch == "riscv";
+          installCheckPhase = "$out/bin/pydrofoil-${arch} ${sail-riscv}/test/riscv-tests/rv64ui-p-beq.elf";
 
           meta = {
             description = "A fast RISC-V emulator based on the RISC-V Sail model, and an experimental ARM one";
@@ -586,7 +615,7 @@
         pydrofoil-cheriot = mkPydrofoil "cheriot";
         pydrofoil-riscv = mkPydrofoil "riscv";
       in {
-        checks = { inherit divspl pysom-ast pysom-bc pypy2 pypy3; };
+        checks = { inherit divspl pydrofoil-riscv pysom-ast pysom-bc pypy2 pypy3; };
         lib = { inherit mkRPythonDerivation; };
         packages = rec {
           inherit r1brc bf dcpu16py divspl hippyvm icbink pixie plang pycket
