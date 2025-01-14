@@ -10,7 +10,6 @@ ARM | `pydgin`
 Brainfuck | `bf`
 DCPU-16 | `dcpu16py`
 DIVSPL | `divspl`
-LR35902 "Game Boy" | `pygirl`
 Kernel Lisp | `icbink`, `plang`
 Pixie Lisp | `pixie`
 Prolog | `pyrolog`
@@ -30,6 +29,7 @@ Cammy | [`cammy`](https://osdn.net/users/corbin/pf/cammy/)
 Monte | [`typhon`](https://github.com/monte-language/typhon/)
 Nix | [`regiux`](https://osdn.net/users/corbin/pf/regiux/)
 M-Audio Oxygen MIDI controllers | [`dioxide`](https://github.com/rpypkgs/dioxide)
+LR35902 "Game Boy" | [`pygirl`](https://github.com/rpypkgs/pygirl)
 
 These implementations have one thing in common: they are written with RPython,
 a restricted subset of Python 2.7 which is amenable to static analysis. Using

@@ -415,31 +415,6 @@
             license = pkgs.lib.licenses.bsd3;
           };
         };
-        pygirl = mkRPythonDerivation {
-          entrypoint = "pygirl/targetgbimplementation.py";
-          binName = "targetgbimplementation-c";
-          binInstallName = "pygirl";
-          optLevel = "2";
-          withLibs = ls: [ ls.rsdl ];
-        } {
-          pname = "pygirl";
-          version = "16.11";
-
-          src = pkgs.fetchFromGitHub {
-            owner = "Yardanico";
-            repo = "PyGirlGameboy";
-            rev = "674dcbed21d1c2912187c1e234d44990739383b4";
-            sha256 = "sha256-YEc7d98LwZpbkp4OV6J2iXWn/z/7RHL0dmnkkEU/agE=";
-          };
-
-          buildInputs = with pkgs; [ SDL SDL2 ];
-
-          # XXX shipped without license, originally same license as PyPy
-          meta = {
-            description = "GameBoy emulator written in RPython";
-            license = pkgs.lib.licenses.mit;
-          };
-        };
         coreLib = pkgs.fetchFromGitHub {
           owner = "SOM-st";
           repo = "SOM";
@@ -619,13 +594,14 @@
         lib = { inherit mkRPythonDerivation; };
         packages = rec {
           inherit r1brc bf dcpu16py divspl hippyvm icbink pixie plang pycket
-            pydgin pygirl pypy2 pypy3 pyrolog rsqueak topaz;
+            pydgin pypy2 pypy3 pyrolog rsqueak topaz;
           inherit pydrofoil-arm pydrofoil-cheriot pydrofoil-riscv;
           inherit pysom-ast pysom-bc;
           # Export bootstrap PyPy. It is just as fast as standard PyPy, but
           # missing some parts of the stdlib.
           inherit pypy2Minimal;
           pysom = pysom-bc;
+          pygirl = throw "pygirl is now downstream of this flake; use github:rpypkgs/pygirl instead";
         };
         devShells.default = pkgs.mkShell {
           packages = builtins.filter (p: !p.meta.broken) (with pkgs; [
