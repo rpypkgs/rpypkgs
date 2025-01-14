@@ -601,7 +601,6 @@
           # missing some parts of the stdlib.
           inherit pypy2Minimal;
           pysom = pysom-bc;
-          pygirl = throw "pygirl is now downstream of this flake; use github:rpypkgs/pygirl instead";
         };
         devShells.default = pkgs.mkShell {
           packages = builtins.filter (p: !p.meta.broken) (with pkgs; [
