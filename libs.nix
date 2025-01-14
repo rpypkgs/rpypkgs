@@ -37,8 +37,8 @@ let
   rsdlSrc = fetchFromGitHub {
     owner = "rpypkgs";
     repo = "rsdl";
-    rev = "25711dfbe9d9f4ecf3fbc3b1ac414f327a4d9b78";
-    sha256 = "sha256-t/O/4sDoo9v79Z9jXi9dGxBHsf3AWm0+aS/iVFlW6xE=";
+    rev = "acf1e9fad881df0e1b4a9b6e913b810e8413be7b";
+    sha256 = "sha256-3jNScZUpJUYFKFtJevpFHF3gAk8sj5ILvE6XSarxR4U=";
   };
 in {
   appdirs = mkUnpackHook "appdirs" ''
