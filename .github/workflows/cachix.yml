@@ -13,7 +13,5 @@ jobs:
       with:
         name: rpypkgs
         authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
-    # Checks PyPy and some others.
+    # Check everything that is known to build.
     - run: nix flake check
-    # PyGirl requires SDL integration.
-    - run: nix build .#pygirl
