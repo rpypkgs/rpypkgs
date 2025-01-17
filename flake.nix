@@ -161,9 +161,10 @@
         };
 
         # Phase 2: Build everything else using PyPy.
-        mkRPythonDerivation = mkRPythonMaker {
-          py2 = "${pypy2Minimal}/bin/pypy";
-        };
+        # mkRPythonDerivation = mkRPythonMaker {
+        #   py2 = "${pypy2Minimal}/bin/pypy";
+        # };
+        mkRPythonDerivation = mkRPythonBootstrap;
 
         pypy2 = mkPyPy {
           inherit pkgs;
