@@ -234,6 +234,17 @@
 
           src = ./1brc;
         };
+        biia = mkRPythonDerivation {
+          entrypoint = "biia.py";
+          binName = "biia-c";
+          binInstallName = "biia";
+          optLevel = "2";
+        } {
+          pname = "biia";
+          version = "1";
+
+          src = ./biia;
+        };
         bfShare = pkgs.fetchFromGitHub {
           owner = "cwfitzgerald";
           repo = "brainfuck-benchmark";
@@ -593,8 +604,8 @@
         checks = { inherit divspl pydrofoil-riscv pysom-ast pysom-bc pypy2 pypy3; };
         lib = { inherit mkRPythonDerivation; };
         packages = rec {
-          inherit r1brc bf dcpu16py divspl hippyvm icbink pixie plang pycket
-            pydgin pypy2 pypy3 pyrolog rsqueak topaz;
+          inherit r1brc biia bf dcpu16py divspl hippyvm icbink pixie plang
+            pycket pydgin pypy2 pypy3 pyrolog rsqueak topaz;
           inherit pydrofoil-arm pydrofoil-cheriot pydrofoil-riscv;
           inherit pysom-ast pysom-bc;
           # Export bootstrap PyPy. It is just as fast as standard PyPy, but
