@@ -2,6 +2,19 @@
 
 import sys
 
+SP = ord(' ')
+
+def maxList(l):
+    rv = l[0]
+    for x in l:
+        if x > rv: rv = x
+    return rv
+
+def anyList(l):
+    for x in l:
+        if x: return True
+    return False
+
 class Canvas(object):
     def __init__(self, arr, h, w):
         self.arr = arr
@@ -12,19 +25,15 @@ class Canvas(object):
     def set(self, i, j, c): self.arr[j + i * self.w] = c
 
     def asLines(self):
-        lines = []
-        for i in range(self.h):
-            lines.append("".join([chr(self.at(i, j))
-                                 for j in range(self.w)]))
-        return "\n".join(lines)
+        return "\n".join(["".join([chr(self.at(i, j))
+                                   for j in range(self.w)])
+                          for i in range(self.h)])
+
+    def isFull(self):
+        return not anyList([self.arr[i] == SP for i in range(self.h * self.w)])
+    def canStart(self): return self.arr[0] != SP
 
 def blank(h, w): return Canvas(bytearray(" " * (w * h)), h, w)
-
-def maxList(l):
-    rv = l[0]
-    for x in l:
-        if x > rv: rv = x
-    return rv
 
 def frame(s):
     lines = s.split("\n")
@@ -45,7 +54,7 @@ def parse(arr):
         j = 0
         while j < arr.w:
             c = arr.at(i, j)
-            if c != ord(' '): rv.append(makeTile(arr, i, j))
+            if c != SP: rv.append(makeTile(arr, i, j))
             j += 1
         i += 1
     return rv
@@ -59,7 +68,7 @@ def makeTile(arr, i, j):
     while len(stack):
         i, j = stack.pop()
         if (i, j) in found: continue
-        if arr.at(i, j) == ord(' '): continue
+        if arr.at(i, j) == SP: continue
         found[i, j] = None
         if i < mini: mini = i
         elif i > maxi: maxi = i
@@ -76,7 +85,7 @@ def makeTile(arr, i, j):
     sprite = blank(sph, spw)
     for i, j in found.keys():
         sprite.set(i - mini, j - minj, arr.at(i, j))
-        arr.set(i, j, ord(' '))
+        arr.set(i, j, SP)
     return sprite
 
 def main(argv):
@@ -87,6 +96,15 @@ def main(argv):
     for tile in tiles:
         print "Got tile: height", tile.h, "width", tile.w
         print tile.asLines()
+    boards = [tile for tile in tiles if tile.canStart()]
+    for board in boards:
+        if board.isFull():
+            print "Found a complete board:"
+            print board.asLines()
+            return 0
+    if not len(boards):
+        print "No starters!"
+        return 1
     return 0
 
 def target(*args): return main, None
