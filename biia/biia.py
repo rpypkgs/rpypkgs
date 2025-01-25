@@ -33,6 +33,31 @@ class Canvas(object):
         return not anyList([self.arr[i] == SP for i in range(self.h * self.w)])
     def canStart(self): return self.arr[0] != SP
 
+    def interior(self):
+        maxh = self.h
+        maxw = self.w
+        for i in range(self.h):
+            for j in range(self.w):
+                if self.at(i, j) == SP:
+                    maxh = min(maxh, i)
+                    maxw = min(maxw, j)
+        return maxh, maxw
+
+    def fit(self, tile, x, y):
+        for i in range(x, min(self.h, x + tile.h)):
+            for j in range(y, min(self.w, y + tile.w)):
+                if self.at(i, j) != SP and tile.at(x - i, y - j) != SP:
+                    return None
+        rv = blank(max(self.h, x + tile.h), max(self.w, y + tile.w))
+        rv.blit(self, 0, 0)
+        rv.blit(tile, x, y)
+        return rv
+
+    def blit(self, tile, x, y):
+        for i in range(tile.h):
+            for j in range(tile.w):
+                self.set(x + i, y + j, tile.at(i, j))
+
 def blank(h, w): return Canvas(bytearray(" " * (w * h)), h, w)
 
 def frame(s):
@@ -88,6 +113,24 @@ def makeTile(arr, i, j):
         arr.set(i, j, SP)
     return sprite
 
+def applyTiles(boards, tiles):
+    rv = []
+    for board in boards:
+        maxx, maxy = board.interior()
+        for tile in tiles:
+            for x in range(maxx):
+                candidate = board.fit(tile, x, maxy + 1)
+                if candidate is None: continue
+                rv.append(candidate)
+            for y in range(maxy):
+                candidate = board.fit(tile, maxx + 1, y)
+                if candidate is None: continue
+                rv.append(candidate)
+            candidate = board.fit(tile, maxx + 1, maxy + 1)
+            if candidate is None: continue
+            rv.append(candidate)
+    return rv
+
 def main(argv):
     if len(argv) != 2:
         print "Usage:", argv[0], "<tiles.txt>"
@@ -97,15 +140,23 @@ def main(argv):
         print "Got tile: height", tile.h, "width", tile.w
         print tile.asLines()
     boards = [tile for tile in tiles if tile.canStart()]
-    for board in boards:
-        if board.isFull():
-            print "Found a complete board:"
-            print board.asLines()
-            return 0
-    if not len(boards):
-        print "No starters!"
-        return 1
-    return 0
+    gen = 0
+    while len(boards):
+        gen += 1
+        print "Generation:", gen, "Live boards:", len(boards)
+        for board in boards:
+            if board.isFull():
+                print "Found a complete board:"
+                print board.asLines()
+                return 0
+        newBoards = applyTiles(boards, tiles)
+        if not len(newBoards):
+            print "Ran out of boards; previous generation:"
+            for board in boards: print board.asLines()
+        if gen >= 5: break
+        boards = newBoards
+    print "No more viable boards to search!"
+    return 1
 
 def target(*args): return main, None
 
