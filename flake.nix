@@ -40,9 +40,9 @@
             major = "2";
             minor = "7";
             patch = "18";
-            suffix = ".8"; # ActiveState's Python 2 extended support
+            suffix = ".11"; # ActiveState's Python 2 extended support
           };
-          hash = "sha256-HUOzu3uJbtd+3GbmGD35KOk/CDlwL4S7hi9jJGRFiqI=";
+          hash = "sha256-HUpPjDxlkrZrs1E7IFZYAbGKF7sRq5UOPmjTp2MDe0Q=";
           inherit (pkgs.darwin) configd;
         };
 
