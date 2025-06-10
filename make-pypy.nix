@@ -29,8 +29,7 @@ rpyMaker {
   patches = [
     ./pypy/dont_fetch_vendored_deps.patch
 
-    (pkgs.substituteAll {
-      src = ./pypy/tk_tcl_paths.patch;
+    (pkgs.replaceVars ./pypy/tk_tcl_paths.patch {
       inherit (pkgs) tk tcl;
       tk_dev = pkgs.tk.dev;
       tcl_dev = pkgs.tcl;
@@ -38,8 +37,7 @@ rpyMaker {
       tcl_libprefix = pkgs.tcl.libPrefix;
     })
 
-    (pkgs.substituteAll {
-      src = ./pypy/sqlite_paths.patch;
+    (pkgs.replaceVars ./pypy/sqlite_paths.patch {
       inherit (pkgs.sqlite) out dev;
     })
   ];

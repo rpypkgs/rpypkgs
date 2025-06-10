@@ -2,7 +2,7 @@
   description = "Packages built with RPython";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/release-24.11";
+    nixpkgs.url = "github:nixos/nixpkgs/release-25.05";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
@@ -601,7 +601,11 @@
         pydrofoil-cheriot = mkPydrofoil "cheriot";
         pydrofoil-riscv = mkPydrofoil "riscv";
       in {
-        checks = { inherit divspl pydrofoil-riscv pysom-ast pysom-bc pypy2 pypy3; };
+        checks = {
+          inherit divspl pysom-ast pysom-bc pypy2 pypy3;
+          # XXX need to bump all the intermediate hashes
+          # inherit pydrofoil-riscv;
+        };
         lib = { inherit mkRPythonDerivation; };
         packages = rec {
           inherit r1brc biia bf dcpu16py divspl hippyvm icbink pixie plang
@@ -617,7 +621,7 @@
           packages = builtins.filter (p: !p.meta.broken) (with pkgs; [
             cachix nix-tree
             # pypy2Minimal
-            linuxPackages.perf gdb
+            # linuxPackages.perf gdb
           ]);
         };
       }

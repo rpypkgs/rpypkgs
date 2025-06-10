@@ -19,13 +19,13 @@
 
 buildDunePackage rec {
   pname = "sail";
-  version = "0.18";
+  version = "0.19";
 
   src = fetchFromGitHub {
     owner = "rems-project";
     repo = "sail";
     rev = version;
-    sha256 = "sha256-QvVK7KeAvJ/RfJXXYo6xEGEk5iOmVsZbvzW28MHRFic=";
+    sha256 = "sha256-PhMypsXJs3S/4gWPX/NmPZg2gpwsE56waIcrQub44n0=";
   };
 
   minimalOCamlVersion = "4.08";
