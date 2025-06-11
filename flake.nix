@@ -178,7 +178,7 @@
           rpyMaker = mkRPythonDerivation;
           pyVersion = "3.11";
           version = "7.3.19";
-          binName = "pypy3.10-c";
+          binName = "pypy3.11-c";
           src = pkgs.fetchurl {
             url = "https://downloads.python.org/pypy/pypy3.11-v${version}-src.tar.bz2";
             hash = "sha256-SBfARLtGmjJ05gqjZFdw+B60+RZup/3E5sNRNFVUyNg=";
