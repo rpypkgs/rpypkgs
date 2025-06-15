@@ -52,7 +52,9 @@ rpyMaker {
 
     mkdir -p $out/lib/
     cp *${pkgs.stdenv.hostPlatform.extensions.sharedLibrary} $out/lib/
-    ln -s $out/pypy-c/lib-python/${pyVersion} $out/lib/pypy${pyVersion}
+    if [[ -d $out/pypy-c/lib-python/${pyVersion} ]]; then
+      ln -s $out/pypy-c/lib-python/${pyVersion} $out/lib/pypy${pyVersion}
+    fi
 
     mkdir -p $out/include/
     ln -s $out/pypy-c/include $out/include/pypy${pyVersion}
