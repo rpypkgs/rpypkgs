@@ -52,8 +52,8 @@
         pypySrc = pkgs.fetchFromGitHub {
           owner = "pypy";
           repo = "pypy";
-          rev = "004dde39cd44110754efabe711884f7e9b2cc336";
-          sha256 = "sha256-ylvM0V8KyP/6VH69vzt8yuVG8cKgqaLflKOs6duJsLE=";
+          rev = "release-pypy2.7-v7.3.20";
+          sha256 = "sha256-W6bVE4oIwG6Eh/RD9kmZqG9WO+I//hg/UDz/9b8lxJs=";
         };
 
         # Generic builder for RPython. Takes three levels of configuration.
@@ -154,7 +154,7 @@
           inherit pkgs;
           rpyMaker = mkRPythonBootstrap;
           pyVersion = "2.7";
-          version = "7.3.19";
+          version = "7.3.20";
           binName = "pypy-c";
           minimal = true;
           src = pypySrc;
@@ -169,7 +169,7 @@
           inherit pkgs;
           rpyMaker = mkRPythonDerivation;
           pyVersion = "2.7";
-          version = "7.3.19";
+          version = "7.3.20";
           binName = "pypy-c";
           src = pypySrc;
         };
@@ -177,11 +177,11 @@
           inherit pkgs;
           rpyMaker = mkRPythonDerivation;
           pyVersion = "3.11";
-          version = "7.3.19";
+          version = "7.3.20";
           binName = "pypy3.11-c";
           src = pkgs.fetchurl {
             url = "https://downloads.python.org/pypy/pypy3.11-v${version}-src.tar.bz2";
-            hash = "sha256-SBfARLtGmjJ05gqjZFdw+B60+RZup/3E5sNRNFVUyNg=";
+            hash = "sha256-d4bdp2AAPi6nQJwQN+UCAMV47EJ84CRaxM11hxCyBvs=";
           };
         };
 
