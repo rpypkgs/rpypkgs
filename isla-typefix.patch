@@ -1,0 +1,42 @@
+diff --git a/isla-sail/jib_ir.ml b/isla-sail/jib_ir.ml
+index a4bf54e..1af9010 100644
+--- a/isla-sail/jib_ir.ml
++++ b/isla-sail/jib_ir.ml
+@@ -198,9 +198,9 @@ module Ir_formatter = struct
+          add_instr n buf indent (C.keyword "end")
+       | I_copy (clexp, cval) ->
+          add_instr n buf indent (string_of_clexp clexp ^ " = " ^ C.value cval ^ output_loc l)
+-      | I_funcall (creturn, Call, id, args) ->
++      | I_funcall (creturn, false, id, args) ->
+          add_instr n buf indent (string_of_creturn creturn ^ " = " ^ string_of_uid id ^ "(" ^ Util.string_of_list ", " C.value args ^ ")" ^ output_loc l)
+-      | I_funcall (creturn, Extern _, id, args) ->
++      | I_funcall (creturn, true, id, args) ->
+          add_instr n buf indent (string_of_creturn creturn ^ " = $" ^ string_of_uid id ^ "(" ^ Util.string_of_list ", " C.value args ^ ")" ^ output_loc l)
+       | I_return cval ->
+          add_instr n buf indent (C.keyword "return" ^ " " ^ C.value cval)
+diff --git a/isla-sail/sail_plugin_isla.ml b/isla-sail/sail_plugin_isla.ml
+index db43e23..3ba6260 100644
+--- a/isla-sail/sail_plugin_isla.ml
++++ b/isla-sail/sail_plugin_isla.ml
+@@ -262,7 +262,7 @@ let remove_casts cdefs =
+        else (
+          let fid = Printf.sprintf "%s->%s" (string_of_ctyp ctyp_from) (string_of_ctyp ctyp_to) in
+          conversions := StringMap.add fid (ctyp_from, ctyp_to) !conversions;
+-         [I_aux (I_funcall (CR_one clexp, Call, (mk_id fid, []), [cval]), aux)]
++         [I_aux (I_funcall (CR_one clexp, false, (mk_id fid, []), [cval]), aux)]
+        )
+     | I_aux (I_init (ctyp_to, id, Init_cval cval), aux) ->
+        let ctyp_from = cval_ctyp cval in
+@@ -309,10 +309,10 @@ let fix_cons cdefs =
+   let cons_name ctyp = mk_id ("cons#" ^ string_of_ctyp ctyp) in
+ 
+   let collect_cons_ctyps list_ctyps = function
+-    | I_aux (I_funcall (clexp, Extern _, (id, [ctyp]), args), aux) when string_of_id id = "sail_cons" ->
++    | I_aux (I_funcall (clexp, true, (id, [ctyp]), args), aux) when string_of_id id = "sail_cons" ->
+        list_ctyps := CTSet.add ctyp !list_ctyps;
+        list_ctyps := CTSet.add ctyp !all_list_ctyps;
+-       I_aux (I_funcall (clexp, Call, (cons_name ctyp, []), args), aux)
++       I_aux (I_funcall (clexp, false, (cons_name ctyp, []), args), aux)
+ 
+     | instr -> instr
+   in

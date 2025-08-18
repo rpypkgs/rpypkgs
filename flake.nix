@@ -521,17 +521,25 @@
         sail = pkgs.ocamlPackages.callPackage ./sail.nix {};
         isla-sail = pkgs.ocamlPackages.buildDunePackage rec {
           pname = "sail_isla_backend";
-          version = "2024";
+          version = "0.19.1";
 
           src = pkgs.fetchFromGitHub {
             owner = "rems-project";
             repo = "isla";
-            rev = "72e0045d68412f04bff3947a03fe515b84ca1301";
-            sha256 = "sha256-FW7LOgiqtHyMZ84aKeVOtc2ai7KQ6S+yiCFCjRRye7Q=";
+            rev = "49130c5841a4c04d0e43c0a2f9b61c417656f7fa";
+            sha256 = "sha256-N6k+kC/a9Kkua51fjhNfNlfzLu5BHmdTE5r/0FtHEZo=";
           };
           sourceRoot = "${src.name}/isla-sail";
 
           buildInputs = [ pkgs.makeWrapper pkgs.ocamlPackages.base64 sail ];
+
+          # Patches are relative to top-level directory
+          patchFlags = [ "-p2" ];
+          patches = [
+            # https://github.com/rems-project/isla/issues/93
+            ./isla-cfbolz-config.patch
+            ./isla-typefix.patch
+          ];
 
           postInstall = ''
             mkdir -p $out/bin/
@@ -603,8 +611,7 @@
       in {
         checks = {
           inherit divspl pysom-ast pysom-bc pypy2 pypy3;
-          # XXX need to bump all the intermediate hashes
-          # inherit pydrofoil-riscv;
+          inherit pydrofoil-riscv;
         };
         lib = { inherit mkRPythonDerivation; };
         packages = rec {
@@ -620,6 +627,7 @@
         devShells.default = pkgs.mkShell {
           packages = builtins.filter (p: !p.meta.broken) (with pkgs; [
             cachix nix-tree
+            patchutils
             # pypy2Minimal
             # linuxPackages.perf gdb
           ]);

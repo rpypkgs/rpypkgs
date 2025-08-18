@@ -1,0 +1,23 @@
+diff --git a/isla-sail/jib_ir.ml b/isla-sail/jib_ir.ml
+index 9d904b3..63dc6b7 100644
+--- a/isla-sail/jib_ir.ml
++++ b/isla-sail/jib_ir.ml
+@@ -157,6 +157,8 @@ module Ir_formatter = struct
+          add_instr n buf indent (string_of_name id ^ " : " ^ C.typ ctyp ^ output_loc l)
+       | I_init (ctyp, id, Init_cval cval) | I_reinit (ctyp, id, cval) ->
+          add_instr n buf indent (string_of_name id ^ " : " ^ C.typ ctyp ^ " = " ^ C.value cval ^ output_loc l)
++      | I_init (ctyp, id, Init_json_key parts) ->
++         add_instr n buf indent (string_of_name id ^ " : " ^ C.typ ctyp ^ " = $json_key(" ^ (Util.string_of_list ", " (fun part -> "\"" ^ part ^ "\"") parts) ^ ")" ^ output_loc l)
+       | I_clear (ctyp, id) ->
+          add_instr n buf indent ("!" ^ string_of_name id)
+       | I_label label ->
+diff --git a/isla-sail/sail_plugin_isla.ml b/isla-sail/sail_plugin_isla.ml
+index 3ba6260..a73ad19 100644
+--- a/isla-sail/sail_plugin_isla.ml
++++ b/isla-sail/sail_plugin_isla.ml
+@@ -367,4 +367,5 @@ let _ =
+     ~options:isla_options
+     ~pre_parse_hook:isla_initialize
+     ~rewrites:isla_rewrites
++    ~supports_runtime_config:true
+     isla_target
