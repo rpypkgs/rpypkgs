@@ -25,11 +25,6 @@
         "powerpc64le-linux"
         "s390x-linux"
       ];
-      # Pre-bootstrapped builds that can be pulled from CI. Comment out to
-      # build one for yourself. ~ C.
-      prebuilts = {
-        "x86_64-linux" = /nix/store/v4a86036x5rswa5r0va6yczmm29ig32p-pypy-2.7-minimal-7.3.20;
-      };
     in {
       templates.default = {
         path = ./template;
@@ -165,7 +160,8 @@
           src = pypySrc;
         };
 
-        pypy2Minimal = prebuilts.${system} or builtPypy2Minimal;
+        # pypy2Minimal = prebuilts.${system} or
+        pypy2Minimal = builtPypy2Minimal;
 
         # Phase 2: Build everything else using PyPy.
         mkRPythonDerivation = mkRPythonMaker {
