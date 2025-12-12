@@ -2,7 +2,7 @@
   description = "Packages built with RPython";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/release-25.05";
+    nixpkgs.url = "github:nixos/nixpkgs/release-25.11";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
@@ -13,24 +13,25 @@
       # confirmed to work; they do not need to support every interpreter. ~ C.
       # Bump template/flake.nix when new systems are tested, too.
       testedSystems = [
-        "x86_64-linux"
         "aarch64-linux"
+        "armv7l-linux"
+        "i686-linux" 
+        "s390x-linux"
+        "x86_64-linux"
       ];
       untestedSystems = [
-        "i686-linux" "i686-windows" "i686-freebsd13" "i686-openbsd"
+        "i686-windows" "i686-freebsd13" "i686-openbsd"
         "x86_64-darwin" "x86_64-freebsd13" "x86_64-openbsd"
-        "armv6l-linux" "armv7l-linux"
+        "armv6l-linux"
         "aarch64-darwin"
-        "powerpc64-linux"
-        "powerpc64le-linux"
-        "s390x-linux"
+        "powerpc64-linux" "powerpc64le-linux"
       ];
     in {
       templates.default = {
         path = ./template;
         description = "A basic RPython project";
       };
-    } // (flake-utils.lib.eachSystem (testedSystems ++ untestedSystems) (system:
+    } // (flake-utils.lib.eachSystem (testedSystems) (system:
       let
         pkgs = import nixpkgs { inherit system; };
 
@@ -399,6 +400,8 @@
 
           buildInputs = with pkgs; [ SDL SDL2 ];
 
+          patches = [ ./rsqueak.patch ];
+
           meta = {
             description = "A Squeak/Smalltalk VM written in RPython";
             license = pkgs.lib.licenses.bsd3;
@@ -470,7 +473,7 @@
             sha256 = "sha256-0aIJTpFdk86HSwDXZyP5ahfyuMcMfljoSrvsceYX4i0=";
           };
 
-          nativeBuildInputs = with pkgs; [ mysql-client pcre.dev rhash bzip2.dev ];
+          nativeBuildInputs = with pkgs; [ mariadb.client pcre.dev rhash bzip2.dev ];
 
           prePatch = ''
             sed -ie 's,from rpython.rlib.rfloat import isnan,from math import isnan,' hippy/objects/*.py
@@ -619,7 +622,9 @@
         lib = { inherit mkRPythonDerivation; };
         packages = rec {
           inherit r1brc biia bf dcpu16py divspl hippyvm icbink pixie plang
-            pycket pydgin pypy2 pypy3 pyrolog rsqueak topaz;
+            pycket pydgin pypy2 pypy3 pyrolog topaz;
+          # inherit r1brc biia bf dcpu16py divspl hippyvm icbink pixie plang
+          #   pycket pydgin pypy2 pypy3 pyrolog rsqueak topaz;
           inherit pydrofoil-arm pydrofoil-cheriot pydrofoil-riscv;
           inherit pysom-ast pysom-bc;
           # Export bootstrap PyPy. It is just as fast as standard PyPy, but

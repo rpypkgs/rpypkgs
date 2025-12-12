@@ -1,0 +1,16 @@
+diff --git a/targetrsqueak.py b/targetrsqueak.py
+index a925445..1c8df55 100755
+--- a/targetrsqueak.py
++++ b/targetrsqueak.py
+@@ -17,10 +17,7 @@ def target(driver, args):
+     config = driver.config
+     parser(config).parse_args(args)
+ 
+-    driver.config.translation.suggest(**{
+-        "jit": True,
+-        "jit_opencoder_model": "big",
+-    })
++    driver.config.translation.suggest(jit=True)
+     driver.config.translation.set(gcrootfinder="shadowstack")
+     if system.IS_WINDOWS:
+         driver.config.translation.suggest(**{

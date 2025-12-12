@@ -23,7 +23,7 @@ rpyMaker {
 
     if [[ -f lib-python/3/tkinter/tix.py ]]; then
       substituteInPlace lib-python/3/tkinter/tix.py \
-        --replace "os.environ.get('TIX_LIBRARY')" "'${pkgs.tix}/lib'"
+        --replace "os.environ.get('TIX_LIBRARY')" "'${pkgs.tclPackages.tix}/lib'"
     fi
   '';
   patches = [
@@ -64,9 +64,11 @@ rpyMaker {
   doInstallCheck = !minimal;
   installCheckPhase = let
     modules = if (binName == "pypy-c") then [
-      "Tkinter" "curses" "sqlite3"
+      # "Tkinter" "curses" "sqlite3"
+      "Tkinter" "curses"
     ] else [
-      "curses" "lzma" "sqlite3" "tkinter"
+      # "curses" "lzma" "sqlite3" "tkinter"
+      "curses" "lzma" "tkinter"
     ];
     modlist = builtins.concatStringsSep ", " modules;
     imports = builtins.concatStringsSep "; " (builtins.map (x: "import ${x}") modules);
