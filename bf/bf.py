@@ -52,17 +52,23 @@ class Op(object): _immutable_ = True
 
 class _Input(Op):
     _immutable_ = True
-    def runOn(self, tape, position): tape[position] = ord(os.read(0, 1)[0]); return position
+    def runOn(self, tape, position):
+        tape[position] = ord(os.read(0, 1)[0])
+        return position
 Input = _Input()
 class _Output(Op):
     _immutable_ = True
-    def runOn(self, tape, position): os.write(1, chr(tape[position])); return position
+    def runOn(self, tape, position):
+        os.write(1, chr(tape[position]))
+        return position
 Output = _Output()
 class Add(Op):
     _immutable_ = True
     _immutable_fields_ = "imm",
     def __init__(self, imm): self.imm = imm
-    def runOn(self, tape, position): tape[position] += self.imm; return position
+    def runOn(self, tape, position):
+        tape[position] += self.imm
+        return position
 class Shift(Op):
     _immutable_ = True
     _immutable_fields_ = "width",
@@ -70,14 +76,18 @@ class Shift(Op):
     def runOn(self, tape, position): return position + self.width
 class _Zero(Op):
     _immutable_ = True
-    def runOn(self, tape, position): tape[position] = 0; return position
+    def runOn(self, tape, position):
+        tape[position] = 0
+        return position
 Zero = _Zero()
 class ZeroScaleAdd(Op):
     _immutable_ = True
     _immutable_fields_ = "offset", "scale"
     def __init__(self, offset, scale): self.offset, self.scale = offset, scale
     def runOn(self, tape, position):
-        tape[position + self.offset] += tape[position] * self.scale; tape[position] = 0; return position
+        tape[position + self.offset] += tape[position] * self.scale
+        tape[position] = 0
+        return position
 class ZeroScaleAdd2(Op):
     _immutable_ = True
     _immutable_fields_ = "offset1", "scale1", "offset2", "scale2"
@@ -85,7 +95,9 @@ class ZeroScaleAdd2(Op):
         self.offset1, self.scale1, self.offset2, self.scale2 = offset1, scale1, offset2, scale2
     def runOn(self, tape, position):
         tape[position + self.offset1] += tape[position] * self.scale1
-        tape[position + self.offset2] += tape[position] * self.scale2; tape[position] = 0; return position
+        tape[position + self.offset2] += tape[position] * self.scale2
+        tape[position] = 0
+        return position
 class Loop(Op):
     _immutable_ = True
     _immutable_fields_ = "op",
@@ -108,22 +120,30 @@ class AddAt(Op):
     _immutable_ = True
     _immutable_fields_ = "offset", "imm"
     def __init__(self, offset, imm): self.offset, self.imm = offset, imm
-    def runOn(self, tape, position): tape[position + self.offset] += self.imm; return position
+    def runOn(self, tape, position):
+        tape[position + self.offset] += self.imm
+        return position
 class InputAt(Op):
     _immutable_ = True
     _immutable_fields_ = "offset",
     def __init__(self, offset): self.offset = offset
-    def runOn(self, tape, position): tape[position + self.offset] = ord(os.read(0, 1)[0]); return position
+    def runOn(self, tape, position):
+        tape[position + self.offset] = ord(os.read(0, 1)[0])
+        return position
 class OutputAt(Op):
     _immutable_ = True
     _immutable_fields_ = "offset",
     def __init__(self, offset): self.offset = offset
-    def runOn(self, tape, position): os.write(1, chr(tape[position + self.offset])); return position
+    def runOn(self, tape, position):
+        os.write(1, chr(tape[position + self.offset]))
+        return position
 class ZeroAt(Op):
     _immutable_ = True
     _immutable_fields_ = "offset",
     def __init__(self, offset): self.offset = offset
-    def runOn(self, tape, position): tape[position + self.offset] = 0; return position
+    def runOn(self, tape, position):
+        tape[position + self.offset] = 0
+        return position
 class ZeroScaleAddAt(Op):
     _immutable_ = True
     _immutable_fields_ = "src_off", "dst_off", "scale"
@@ -131,7 +151,8 @@ class ZeroScaleAddAt(Op):
         self.src_off, self.dst_off, self.scale = src_off, dst_off, scale
     def runOn(self, tape, position):
         tape[position + self.dst_off] += tape[position + self.src_off] * self.scale
-        tape[position + self.src_off] = 0; return position
+        tape[position + self.src_off] = 0
+        return position
 class ZeroScaleAdd2At(Op):
     _immutable_ = True
     _immutable_fields_ = "src_off", "dst1_off", "scale1", "dst2_off", "scale2"
@@ -141,7 +162,8 @@ class ZeroScaleAdd2At(Op):
     def runOn(self, tape, position):
         tape[position + self.dst1_off] += tape[position + self.src_off] * self.scale1
         tape[position + self.dst2_off] += tape[position + self.src_off] * self.scale2
-        tape[position + self.src_off] = 0; return position
+        tape[position + self.src_off] = 0
+        return position
 class PropSeq(Op):
     _immutable_ = True
     _immutable_fields_ = "ops[*]", "net_shift"
