@@ -1,6 +1,7 @@
 # BF interpreter
-# Includes concepts from (c) 2011 Andrew Brown
-# Major rewrite          (c) 2024 Corbin Simpson
+# Includes concepts from  (c) 2011 Andrew Brown
+# Rewrite, final encoding (c) 2024 Corbin Simpson
+# Pointer propagation     (c) 2026 Corbin Simpson
 
 import os
 import sys
@@ -9,35 +10,33 @@ from rpython.jit.codewriter.policy import JitPolicy
 from rpython.rlib.jit import JitDriver, unroll_safe
 from rpython.rlib.objectmodel import import_from_mixin, specialize
 
+# Initial-coded tokens for whether offsets are absolute or relative.
+class Offset(object): pass
+class Absolute(Offset): pass
+class Relative(Offset): pass
+ABS = Absolute(); REL = Relative()
+
 # https://esolangs.org/wiki/Algebraic_Brainfuck
 # v1: builtins, monoid, zero, move, move2, scalemove, scalemove2
 # v2: propagate
 class BF(object):
-    def unit(self): pass
-    def join(self, l, r): pass
-    def joinList(self, bfs):
-        if not bfs: return self.unit()
-        elif len(bfs) == 1: return bfs[0]
-        elif len(bfs) == 2: return self.join(bfs[0], bfs[1])
-        else:
-            i = len(bfs) >> 1
-            return self.join(self.joinList(bfs[:i]), self.joinList(bfs[i:]))
     def propagate(self, adjust, diffs): pass
-    def plus(self, i): pass
-    def right(self, i): pass
+    def unit(self): return self.propagate(0, {})
+    def join(self, l, r): pass
+    def plus(self, i): return self.propagate(0, {0: (REL, i)})
+    def right(self, i): return self.propagate(i, {})
     def loop(self, bfs): pass
     def input(self): pass
     def output(self): pass
-    def zero(self): return self.loop(self.plus(-1))
+    def zero(self): return self.propagate(0, {0: (ABS, 0)})
     def move(self, i): return self.scalemove(i, 1)
     def move2(self, i, j): return self.scalemove2(i, 1, j, 1)
     def scalemove(self, i, s):
-        return self.loop(self.joinList([
-            self.plus(-1), self.right(i), self.plus(s), self.right(-i)]))
+        return self.loop([self.propagate(0, {0: (REL, -1), i: (REL, s)})])
     def scalemove2(self, i, s, j, t):
-        return self.loop(self.joinList([
-                self.plus(-1), self.right(i), self.plus(s), self.right(j - i),
-                self.plus(t), self.right(-j)]))
+        return self.loop([
+            self.propagate(0, {0: (REL, -1), i: (REL, s), j: (REL, t)}),
+        ])
 
 class AsStr(object):
     import_from_mixin(BF)
@@ -51,15 +50,17 @@ class AsStr(object):
         # NB: if pointer will end up left of starting point
         # then is more efficient to traverse RTL.
         if adjust < 0: ds.reverse()
-        for (k, v) in ds:
+        for (k, (ty, v)) in ds:
             pieces.append(self.right(k - pointer))
             pointer += k - pointer
+            if ty is ABS: pieces.append(self.zero())
             pieces.append(self.plus(v))
         pieces.append(self.right(adjust - pointer))
         return ''.join(pieces)
+    def zero(self): return '[-]'
     def plus(self, i): return '+' * i if i > 0 else '-' * -i
     def right(self, i): return '>' * i if i > 0 else '<' * -i
-    def loop(self, bfs): return '[' + bfs + ']'
+    def loop(self, bfs): return '[' + ''.join(bfs) + ']'
     def input(self): return ','
     def output(self): return '.'
 
@@ -100,7 +101,10 @@ class Propagate(Op):
         self.diffs = diffs
     @unroll_safe
     def runOn(self, tape, position):
-        for (k, v) in self.diffs.iteritems(): tape[position + k] += v
+        for (k, (ty, v)) in self.diffs.iteritems():
+            if   ty is ABS: tape[position + k] = v
+            elif ty is REL: tape[position + k] += v
+            else: assert False, "offsetting"
         return position + self.adjust
 class _Zero(Op):
     _immutable_ = True
@@ -162,98 +166,72 @@ class AsOps(object):
     def plus(self, i): return Add(i)
     def right(self, i): return Shift(i)
     def propagate(self, adjust, diffs): return Propagate(adjust, diffs)
-    def loop(self, bfs): return Loop(bfs)
+    def loop(self, bfs): return Loop(Seq(bfs))
     def input(self): return Input
     def output(self): return Output
     def zero(self): return Zero
     def scalemove(self, i, s): return ZeroScaleAdd(i, s)
     def scalemove2(self, i, s, j, t): return ZeroScaleAdd2(i, s, j, t)
 
-class AbstractDomain(object): pass
-meh, aLoop, aZero, theIdentity, anAdd, aRight = [AbstractDomain() for _ in range(6)]
 
 def makePeephole(cls):
-    # Optimization domain: tuple of underlying domain, abstract tag, integer
-    # (integer only used for adds and shifts)
+    # Optimization domain: tuple of:
+    #     (underlying domain, adjust, diffs)
+    # (diffs is None <=> is not propagator)
     domain = cls()
-    def stripDomain(bfs): return domain.joinList([t[0] for t in bfs])
-    def isConstAdd(bf, i): return bf[1] is anAdd and bf[2] == i
-    def oppositeShifts(bf1, bf2):
-        return bf1[1] is bf2[1] is aRight and bf1[2] == -bf2[2]
-    def oppositeShifts2(bf1, bf2, bf3):
-        return (bf1[1] is bf2[1] is bf3[1] is aRight and
-                bf1[2] + bf2[2] + bf3[2] == 0)
-    def isALoop(ad): return ad is aZero or ad is aLoop
+    def stripDomain(bfs): return [t[0] for t in bfs]
+    # def isALoop(ad): return ad is aZero or ad is aLoop
+    def isProp(t): return t[2] is not None
 
     class Peephole(object):
         import_from_mixin(BF)
-        def unit(self): return []
         # Peephole optimizations according to the standard monoid.
+        def unit(self): return []
         def join(self, l, r):
-            if not l: return r
-            rv = l[:]
-            bfHead, adHead, immHead = rv.pop()
-            for bf, ad, imm in r:
-                if ad is theIdentity: continue
-                elif isALoop(adHead) and isALoop(ad): continue
-                elif adHead is theIdentity:
-                    bfHead, adHead, immHead = bf, ad, imm
-                elif adHead is anAdd and ad is aZero:
-                    bfHead, adHead, immHead = bf, ad, imm
-                elif adHead is anAdd and ad is anAdd:
-                    immHead += imm
-                    if immHead: bfHead = domain.plus(immHead)
-                    elif rv: bfHead, adHead, immHead = rv.pop()
-                    else:
-                        bfHead = domain.unit()
-                        adHead = theIdentity
-                elif adHead is aRight and ad is aRight:
-                    immHead += imm
-                    if immHead: bfHead = domain.right(immHead)
-                    elif rv: bfHead, adHead, immHead = rv.pop()
-                    else:
-                        bfHead = domain.unit()
-                        adHead = theIdentity
-                else:
-                    rv.append((bfHead, adHead, immHead))
-                    bfHead, adHead, immHead = bf, ad, imm
-            rv.append((bfHead, adHead, immHead))
-            return rv
-        def plus(self, i): return [(domain.plus(i), anAdd, i)]
-        def right(self, i): return [(domain.right(i), aRight, i)]
+            if not len(l): return r
+            if not len(r): return l
+            if not isProp(l[-1]) or not isProp(r[0]): return l + r
+            _, ladj, lds = l[-1]
+            _, radj, rds = r[0]
+            adjust = ladj + radj
+            diffs = lds.copy()
+            # return l + r
+            for (k, (rty, rv)) in rds.iteritems():
+                lty, lv = diffs.get(ladj + k, (REL, 0))
+                if   rty is ABS: diffs[ladj + k] = ABS, rv
+                elif rty is REL: diffs[ladj + k] = lty, lv + rv
+                else: assert False, "offputting"
+            return l[:-1] + self.propagate(adjust, diffs) + r[1:]
+            # XXX elif isALoop(adHead) and isALoop(ad): continue
         def propagate(self, adjust, diffs):
-            return [(domain.propagate(adjust, diffs), meh, 0)]
+            return [(domain.propagate(adjust, diffs), adjust, diffs)]
         # Loopish pattern recognition.
         def loop(self, bfs):
-            if len(bfs) == 1:
-                bf, ad, imm = bfs[0]
-                if ad is anAdd and imm in (1, -1):
-                    return [(domain.zero(), aZero, 0)]
-            elif len(bfs) == 4:
-                if (isConstAdd(bfs[0], -1) and
-                    bfs[2][1] is anAdd and
-                    oppositeShifts(bfs[1], bfs[3])):
-                    return [(domain.scalemove(bfs[1][2], bfs[2][2]), aLoop, 0)]
-                if (isConstAdd(bfs[3], -1) and
-                    bfs[1][1] is anAdd and
-                    oppositeShifts(bfs[0], bfs[2])):
-                    return [(domain.scalemove(bfs[0][2], bfs[1][2]), aLoop, 0)]
-            elif len(bfs) == 6:
-                if (isConstAdd(bfs[0], -1) and
-                    bfs[2][1] is bfs[4][1] is anAdd and
-                    oppositeShifts2(bfs[1], bfs[3], bfs[5])):
-                    return [(domain.scalemove2(bfs[1][2], bfs[2][2],
-                                               bfs[1][2] + bfs[3][2],
-                                               bfs[4][2]), aLoop, 0)]
-                if (isConstAdd(bfs[5], -1) and
-                    bfs[1][1] is bfs[3][1] is anAdd and
-                    oppositeShifts2(bfs[0], bfs[2], bfs[4])):
-                    return [(domain.scalemove2(bfs[0][2], bfs[1][2],
-                                               bfs[0][2] + bfs[2][2],
-                                               bfs[3][2]), aLoop, 0)]
-            return [(domain.loop(stripDomain(bfs)), aLoop, 0)]
-        def input(self): return [(domain.input(), meh, 0)]
-        def output(self): return [(domain.output(), meh, 0)]
+            ts = []
+            for bf in bfs: ts.extend(bf)
+            if len(ts) == 1 and isProp(ts[0]):
+                bf, adjust, diffs = ts[0]
+                if adjust == 0 and 0 in diffs:
+                    diffs = diffs.copy()
+                    ty, v = diffs[0]
+                    del diffs[0]
+                    if len(diffs) == 0:
+                        # XXX can be any NPOT
+                        if v in (1, -1) and ty is REL: return self.zero()
+                    elif len(diffs) == 1:
+                        ik, (ity, iv) = diffs.items()[0]
+                        if ty is REL and v == -1 and ity is REL:
+                            return [(domain.scalemove(ik, iv), 0, None)]
+                        # XXX could also add new op for ABS ity
+                    elif len(diffs) == 2:
+                        dis = diffs.items()
+                        ik, (ity, iv) = dis[0]
+                        jk, (jty, jv) = dis[1]
+                        if ty is REL and v == -1 and ity is jty is REL:
+                            return [(domain.scalemove2(ik, iv, jk, jv), 0, None)]
+            return [(domain.loop(stripDomain(ts)), 0, None)]
+        def input(self): return [(domain.input(), 0, None)]
+        def output(self): return [(domain.output(), 0, None)]
     return Peephole, stripDomain
 
 AsStr, finishStr = makePeephole(AsStr)
@@ -265,11 +243,11 @@ def parsePropagator(s, i):
     while i < len(s):
         if s[i] in ',.[]': break
         elif s[i] == '+':
-            if pointer not in diffs: diffs[pointer] = 0
-            diffs[pointer] += 1
+            ty, v = diffs.get(pointer, (REL, 0))
+            diffs[pointer] = ty, v + 1
         elif s[i] == '-':
-            if pointer not in diffs: diffs[pointer] = 0
-            diffs[pointer] -= 1
+            ty, v = diffs.get(pointer, (REL, 0))
+            diffs[pointer] = ty, v - 1
         elif s[i] == '>': pointer += 1
         elif s[i] == '<': pointer -= 1
         i += 1
@@ -303,7 +281,7 @@ def parse(s, domain):
         elif s[i] == '.': ops[-1] = domain.join(ops[-1], domain.output())
         elif s[i] == '[': ops.append(domain.unit())
         elif s[i] == ']':
-            loop = domain.loop(ops.pop())
+            loop = domain.loop([ops.pop()])
             ops[-1] = domain.join(ops[-1], loop)
         i += 1
 
@@ -322,10 +300,10 @@ def entryPoint(argv):
     else: path = argv[1]
     with open(path) as handle: text = handle.read()
     if "-o" in argv:
-        print finishStr(parse(text, AsStr()))
+        print ''.join(finishStr(parse(text, AsStr())))
         return 0
     tape = bytearray("\x00" * cells)
-    finishOps(parse(text, AsOps())).runOn(tape, 0)
+    Seq(finishOps(parse(text, AsOps()))).runOn(tape, 0)
     return 0
 
 def target(*args): return entryPoint, None
