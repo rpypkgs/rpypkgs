@@ -83,9 +83,7 @@ Zero = _Zero()
 class ZeroScaleAdd(Op):
     _immutable_ = True
     _immutable_fields_ = "offset", "scale"
-    def __init__(self, offset, scale):
-        self.offset = offset
-        self.scale = scale
+    def __init__(self, offset, scale): self.offset, self.scale = offset, scale
     def runOn(self, tape, position):
         tape[position + self.offset] += tape[position] * self.scale
         tape[position] = 0
@@ -94,10 +92,7 @@ class ZeroScaleAdd2(Op):
     _immutable_ = True
     _immutable_fields_ = "offset1", "scale1", "offset2", "scale2"
     def __init__(self, offset1, scale1, offset2, scale2):
-        self.offset1 = offset1
-        self.scale1 = scale1
-        self.offset2 = offset2
-        self.scale2 = scale2
+        self.offset1, self.scale1, self.offset2, self.scale2 = offset1, scale1, offset2, scale2
     def runOn(self, tape, position):
         tape[position + self.offset1] += tape[position] * self.scale1
         tape[position + self.offset2] += tape[position] * self.scale2
@@ -121,6 +116,62 @@ class Seq(Op):
     def runOn(self, tape, position):
         for op in self.ops: position = op.runOn(tape, position)
         return position
+class AddAt(Op):
+    _immutable_ = True
+    _immutable_fields_ = "offset", "imm"
+    def __init__(self, offset, imm): self.offset, self.imm = offset, imm
+    def runOn(self, tape, position):
+        tape[position + self.offset] += self.imm
+        return position
+class InputAt(Op):
+    _immutable_ = True
+    _immutable_fields_ = "offset",
+    def __init__(self, offset): self.offset = offset
+    def runOn(self, tape, position):
+        tape[position + self.offset] = ord(os.read(0, 1)[0])
+        return position
+class OutputAt(Op):
+    _immutable_ = True
+    _immutable_fields_ = "offset",
+    def __init__(self, offset): self.offset = offset
+    def runOn(self, tape, position):
+        os.write(1, chr(tape[position + self.offset]))
+        return position
+class ZeroAt(Op):
+    _immutable_ = True
+    _immutable_fields_ = "offset",
+    def __init__(self, offset): self.offset = offset
+    def runOn(self, tape, position):
+        tape[position + self.offset] = 0
+        return position
+class ZeroScaleAddAt(Op):
+    _immutable_ = True
+    _immutable_fields_ = "src_off", "dst_off", "scale"
+    def __init__(self, src_off, dst_off, scale):
+        self.src_off, self.dst_off, self.scale = src_off, dst_off, scale
+    def runOn(self, tape, position):
+        tape[position + self.dst_off] += tape[position + self.src_off] * self.scale
+        tape[position + self.src_off] = 0
+        return position
+class ZeroScaleAdd2At(Op):
+    _immutable_ = True
+    _immutable_fields_ = "src_off", "dst1_off", "scale1", "dst2_off", "scale2"
+    def __init__(self, src_off, dst1_off, scale1, dst2_off, scale2):
+        self.src_off, self.dst1_off, self.scale1, self.dst2_off, self.scale2 = \
+            src_off, dst1_off, scale1, dst2_off, scale2
+    def runOn(self, tape, position):
+        tape[position + self.dst1_off] += tape[position + self.src_off] * self.scale1
+        tape[position + self.dst2_off] += tape[position + self.src_off] * self.scale2
+        tape[position + self.src_off] = 0
+        return position
+class PropSeq(Op):
+    _immutable_ = True
+    _immutable_fields_ = "ops[*]", "net_shift"
+    def __init__(self, ops, net_shift): self.ops, self.net_shift = ops, net_shift
+    @unroll_safe
+    def runOn(self, tape, position):
+        for op in self.ops: position = op.runOn(tape, position)
+        return position + self.net_shift
 
 class AsOps(object):
     import_from_mixin(BF)
@@ -228,6 +279,42 @@ def makePeephole(cls):
 AsStr, finishStr = makePeephole(AsStr)
 AsOps, finishOps = makePeephole(AsOps)
 
+def propagate(op):
+    """Transform Op tree to use pointer propagation (offset-based ops)."""
+    if isinstance(op, Seq):
+        result = []
+        p = 0
+        chunk = []
+        for child in op.ops:
+            if isinstance(child, Shift): p += child.width
+            elif isinstance(child, Add): chunk.append(AddAt(p, child.imm))
+            elif isinstance(child, _Input): chunk.append(InputAt(p))
+            elif isinstance(child, _Output): chunk.append(OutputAt(p))
+            elif isinstance(child, _Zero): chunk.append(ZeroAt(p))
+            elif isinstance(child, ZeroScaleAdd):
+                chunk.append(ZeroScaleAddAt(p, p + child.offset, child.scale))
+            elif isinstance(child, ZeroScaleAdd2):
+                chunk.append(ZeroScaleAdd2At(p, p + child.offset1, child.scale1,
+                                             p + child.offset2, child.scale2))
+            elif isinstance(child, Loop):
+                if chunk or p:
+                    result.append(PropSeq(chunk[:], p))
+                    chunk = []
+                    p = 0
+                result.append(Loop(propagate(child.op)))
+            else:
+                if chunk or p:
+                    result.append(PropSeq(chunk[:], p))
+                    chunk = []
+                    p = 0
+                result.append(propagate(child))
+        if chunk or p: result.append(PropSeq(chunk[:], p))
+        if not result: return Shift(0)
+        elif len(result) == 1: return result[0]
+        else: return Seq(result[:])
+    elif isinstance(op, Loop): return Loop(propagate(op.op))
+    else: return op
+
 @specialize.argtype(1)
 def parse(s, domain):
     ops = [domain.unit()]
@@ -275,7 +362,7 @@ def entryPoint(argv):
         print finishStr(parse(text, AsStr()))
         return 0
     tape = bytearray("\x00" * cells)
-    finishOps(parse(text, AsOps())).runOn(tape, 0)
+    propagate(finishOps(parse(text, AsOps()))).runOn(tape, 0)
     return 0
 
 def target(*args): return entryPoint, None
