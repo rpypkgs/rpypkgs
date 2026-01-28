@@ -10,6 +10,8 @@ from rpython.rlib.jit import JitDriver, unroll_safe
 from rpython.rlib.objectmodel import import_from_mixin, specialize
 
 # https://esolangs.org/wiki/Algebraic_Brainfuck
+# v1: builtins, monoid, zero, move, move2, scalemove, scalemove2
+# v2: propagate
 class BF(object):
     def unit(self): pass
     def join(self, l, r): pass
@@ -20,6 +22,7 @@ class BF(object):
         else:
             i = len(bfs) >> 1
             return self.join(self.joinList(bfs[:i]), self.joinList(bfs[i:]))
+    def propagate(self, adjust, diffs): pass
     def plus(self, i): pass
     def right(self, i): pass
     def loop(self, bfs): pass
@@ -40,6 +43,20 @@ class AsStr(object):
     import_from_mixin(BF)
     def unit(self): return ""
     def join(self, l, r): return l + r
+    def propagate(self, adjust, diffs):
+        pieces = []
+        pointer = 0
+        ds = diffs.items()
+        # XXX need to actually ensure ds is sorted!
+        # NB: if pointer will end up left of starting point
+        # then is more efficient to traverse RTL.
+        if adjust < 0: ds.reverse()
+        for (k, v) in ds:
+            pieces.append(self.right(k - pointer))
+            pointer += k - pointer
+            pieces.append(self.plus(v))
+        pieces.append(self.right(adjust - pointer))
+        return ''.join(pieces)
     def plus(self, i): return '+' * i if i > 0 else '-' * -i
     def right(self, i): return '>' * i if i > 0 else '<' * -i
     def loop(self, bfs): return '[' + bfs + ']'
@@ -74,6 +91,17 @@ class Shift(Op):
     _immutable_fields_ = "width",
     def __init__(self, width): self.width = width
     def runOn(self, tape, position): return position + self.width
+class Propagate(Op):
+    _immutable_ = True
+    _immutable_fields_ = "adjust", "diffs"
+    def __init__(self, adjust, diffs):
+        self.adjust = adjust
+        # XXX maybe sort here? earlier?
+        self.diffs = diffs
+    @unroll_safe
+    def runOn(self, tape, position):
+        for (k, v) in self.diffs.iteritems(): tape[position + k] += v
+        return position + self.adjust
 class _Zero(Op):
     _immutable_ = True
     def runOn(self, tape, position):
@@ -133,6 +161,7 @@ class AsOps(object):
         return Seq([l, r])
     def plus(self, i): return Add(i)
     def right(self, i): return Shift(i)
+    def propagate(self, adjust, diffs): return Propagate(adjust, diffs)
     def loop(self, bfs): return Loop(bfs)
     def input(self): return Input
     def output(self): return Output
@@ -192,6 +221,8 @@ def makePeephole(cls):
             return rv
         def plus(self, i): return [(domain.plus(i), anAdd, i)]
         def right(self, i): return [(domain.right(i), aRight, i)]
+        def propagate(self, adjust, diffs):
+            return [(domain.propagate(adjust, diffs), meh, 0)]
         # Loopish pattern recognition.
         def loop(self, bfs):
             if len(bfs) == 1:
@@ -228,6 +259,22 @@ def makePeephole(cls):
 AsStr, finishStr = makePeephole(AsStr)
 AsOps, finishOps = makePeephole(AsOps)
 
+def parsePropagator(s, i):
+    pointer = 0
+    diffs = {}
+    while i < len(s):
+        if s[i] in ',.[]': break
+        elif s[i] == '+':
+            if pointer not in diffs: diffs[pointer] = 0
+            diffs[pointer] += 1
+        elif s[i] == '-':
+            if pointer not in diffs: diffs[pointer] = 0
+            diffs[pointer] -= 1
+        elif s[i] == '>': pointer += 1
+        elif s[i] == '<': pointer -= 1
+        i += 1
+    return i, pointer, diffs
+
 @specialize.argtype(1)
 def parse(s, domain):
     ops = [domain.unit()]
@@ -244,15 +291,18 @@ def parse(s, domain):
             i += 1
 
     while i < len(s):
-        char = s[i]
-        if char == '+': ops[-1] = domain.join(ops[-1], domain.plus(1))
-        elif char == '-': ops[-1] = domain.join(ops[-1], domain.plus(-1))
-        elif char == '<': ops[-1] = domain.join(ops[-1], domain.right(-1))
-        elif char == '>': ops[-1] = domain.join(ops[-1], domain.right(1))
-        elif char == ',': ops[-1] = domain.join(ops[-1], domain.input())
-        elif char == '.': ops[-1] = domain.join(ops[-1], domain.output())
-        elif char == '[': ops.append(domain.unit())
-        elif char == ']':
+        if s[i] in '+-<>':
+            i, pointer, diffs = parsePropagator(s, i)
+            if len(diffs):
+                ops[-1] = domain.join(ops[-1], domain.propagate(pointer, diffs))
+            elif pointer != 0:
+                ops[-1] = domain.join(ops[-1], domain.right(pointer))
+            # NB: else: ops[-1] = domain.join(ops[-1], domain.unit())
+            continue
+        elif s[i] == ',': ops[-1] = domain.join(ops[-1], domain.input())
+        elif s[i] == '.': ops[-1] = domain.join(ops[-1], domain.output())
+        elif s[i] == '[': ops.append(domain.unit())
+        elif s[i] == ']':
             loop = domain.loop(ops.pop())
             ops[-1] = domain.join(ops[-1], loop)
         i += 1

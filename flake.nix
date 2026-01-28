@@ -259,9 +259,10 @@
           entrypoint = "bf.py";
           binName = "bf-c";
           binInstallName = "bf";
+          # optLevel = "2";
         } {
           pname = "bf";
-          version = "2024";
+          version = "2026";
 
           src = ./bf;
 
