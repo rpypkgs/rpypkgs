@@ -158,7 +158,8 @@ class AsOps(object):
     def scalemove2(self, i, s, j, t): return ZeroScaleAdd2(i, s, j, t)
 
 # https://graphics.stanford.edu/~seander/bithacks.html#DetermineIfPowerOf2
-def npot(i): return bool(abs(i) & (abs(i) - 1))
+# Special case for i=1, whose orbit does include 0!
+def orbitReachesZero(i): return bool((abs(i) & 1) | (abs(i) & (abs(i) - 1)))
 
 def makePeephole(cls):
     # Optimization domain is a tuple of: (underlying domain, adjust, diffs)
@@ -169,7 +170,6 @@ def makePeephole(cls):
 
     class Peephole(object):
         import_from_mixin(BF)
-        # Peephole optimizations according to the standard monoid.
         def unit(self): return []
         def join(self, l, r):
             if not len(l): return r
@@ -179,7 +179,6 @@ def makePeephole(cls):
             _, radj, rds = r[0]
             adjust = ladj + radj
             diffs = lds.copy()
-            # return l + r
             for (k, (rty, rv)) in rds.iteritems():
                 lty, lv = diffs.get(ladj + k, (REL, 0))
                 if   rty is ABS: diffs[ladj + k] = ABS, rv
@@ -188,17 +187,17 @@ def makePeephole(cls):
             return l[:-1] + self.propagate(adjust, diffs) + r[1:]
         def propagate(self, adjust, diffs):
             return [(domain.propagate(adjust, diffs), adjust, diffs)]
-        # Loopish pattern recognition.
         def loop(self, bfs):
             ts = []
             for bf in bfs: ts.extend(bf)
+            # Loopish pattern recognition.
             if len(ts) == 1 and isProp(ts[0]):
                 bf, adjust, diffs = ts[0]
                 if adjust == 0 and 0 in diffs:
                     diffs = diffs.copy()
                     ty, v = diffs[0]
                     del diffs[0]
-                    if len(diffs) == 0 and npot(v) and ty is REL:
+                    if len(diffs) == 0 and orbitReachesZero(v) and ty is REL:
                         return self.zero()
                     elif len(diffs) == 1:
                         ik, (ity, iv) = diffs.items()[0]
