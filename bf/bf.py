@@ -8,6 +8,7 @@ import sys
 
 from rpython.jit.codewriter.policy import JitPolicy
 from rpython.rlib.jit import JitDriver, unroll_safe
+from rpython.rlib.listsort import make_timsort_class
 from rpython.rlib.objectmodel import import_from_mixin, specialize
 
 # Initial-coded tokens for whether offsets are absolute or relative.
@@ -38,6 +39,8 @@ class BF(object):
             self.propagate(0, {0: (REL, -1), i: (REL, s), j: (REL, t)}),
         ])
 
+KeySort = make_timsort_class(lt=lambda l, r: l[0] < r[0])
+
 class AsStr(object):
     import_from_mixin(BF)
     def unit(self): return ""
@@ -46,7 +49,7 @@ class AsStr(object):
         pieces = []
         pointer = 0
         ds = diffs.items()
-        # XXX need to actually ensure ds is sorted!
+        KeySort(ds).sort()
         # NB: if pointer will end up left of starting point
         # then is more efficient to traverse RTL.
         if adjust < 0: ds.reverse()
@@ -80,38 +83,19 @@ class _Output(Op):
         os.write(1, chr(tape[position]))
         return position
 Output = _Output()
-class Add(Op):
-    _immutable_ = True
-    _immutable_fields_ = "imm",
-    def __init__(self, imm): self.imm = imm
-    def runOn(self, tape, position):
-        tape[position] += self.imm
-        return position
-class Shift(Op):
-    _immutable_ = True
-    _immutable_fields_ = "width",
-    def __init__(self, width): self.width = width
-    def runOn(self, tape, position): return position + self.width
 class Propagate(Op):
     _immutable_ = True
-    _immutable_fields_ = "adjust", "diffs"
+    _immutable_fields_ = "adjust", "diffs[*]"
     def __init__(self, adjust, diffs):
         self.adjust = adjust
-        # XXX maybe sort here? earlier?
         self.diffs = diffs
     @unroll_safe
     def runOn(self, tape, position):
-        for (k, (ty, v)) in self.diffs.iteritems():
+        for (k, (ty, v)) in self.diffs:
             if   ty is ABS: tape[position + k] = v
             elif ty is REL: tape[position + k] += v
             else: assert False, "offsetting"
         return position + self.adjust
-class _Zero(Op):
-    _immutable_ = True
-    def runOn(self, tape, position):
-        tape[position] = 0
-        return position
-Zero = _Zero()
 class ZeroScaleAdd(Op):
     _immutable_ = True
     _immutable_fields_ = "offset", "scale"
@@ -156,31 +140,31 @@ class Seq(Op):
 
 class AsOps(object):
     import_from_mixin(BF)
-    def unit(self): return Shift(0)
+    def unit(self): return Propagate(0, [])
     def join(self, l, r):
         if isinstance(l, Seq) and isinstance(r, Seq):
             return Seq(l.ops + r.ops)
         elif isinstance(l, Seq): return Seq(l.ops + [r])
         elif isinstance(r, Seq): return Seq([l] + r.ops)
         return Seq([l, r])
-    def plus(self, i): return Add(i)
-    def right(self, i): return Shift(i)
-    def propagate(self, adjust, diffs): return Propagate(adjust, diffs)
+    def propagate(self, adjust, diffs):
+        ds = diffs.items()
+        KeySort(ds).sort()
+        return Propagate(adjust, ds)
     def loop(self, bfs): return Loop(Seq(bfs))
     def input(self): return Input
     def output(self): return Output
-    def zero(self): return Zero
     def scalemove(self, i, s): return ZeroScaleAdd(i, s)
     def scalemove2(self, i, s, j, t): return ZeroScaleAdd2(i, s, j, t)
 
+# https://graphics.stanford.edu/~seander/bithacks.html#DetermineIfPowerOf2
+def npot(i): return bool(abs(i) & (abs(i) - 1))
 
 def makePeephole(cls):
-    # Optimization domain: tuple of:
-    #     (underlying domain, adjust, diffs)
+    # Optimization domain is a tuple of: (underlying domain, adjust, diffs)
     # (diffs is None <=> is not propagator)
     domain = cls()
     def stripDomain(bfs): return [t[0] for t in bfs]
-    # def isALoop(ad): return ad is aZero or ad is aLoop
     def isProp(t): return t[2] is not None
 
     class Peephole(object):
@@ -202,7 +186,6 @@ def makePeephole(cls):
                 elif rty is REL: diffs[ladj + k] = lty, lv + rv
                 else: assert False, "offputting"
             return l[:-1] + self.propagate(adjust, diffs) + r[1:]
-            # XXX elif isALoop(adHead) and isALoop(ad): continue
         def propagate(self, adjust, diffs):
             return [(domain.propagate(adjust, diffs), adjust, diffs)]
         # Loopish pattern recognition.
@@ -215,9 +198,8 @@ def makePeephole(cls):
                     diffs = diffs.copy()
                     ty, v = diffs[0]
                     del diffs[0]
-                    if len(diffs) == 0:
-                        # XXX can be any NPOT
-                        if v in (1, -1) and ty is REL: return self.zero()
+                    if len(diffs) == 0 and npot(v) and ty is REL:
+                        return self.zero()
                     elif len(diffs) == 1:
                         ik, (ity, iv) = diffs.items()[0]
                         if ty is REL and v == -1 and ity is REL:
@@ -253,6 +235,15 @@ def parsePropagator(s, i):
         i += 1
     return i, pointer, diffs
 
+def skipLoop(s, i):
+    depth = 1
+    i += 1
+    while i < len(s) and depth:
+        if s[i] == '[': depth += 1
+        elif s[i] == ']': depth -= 1
+        i += 1
+    return i
+
 @specialize.argtype(1)
 def parse(s, domain):
     ops = [domain.unit()]
@@ -260,29 +251,26 @@ def parse(s, domain):
 
     # Skip initial comment-loops; this is easier than adding a special case to
     # the optimizers for non-obvious reasons.
-    while i < len(s) and s[i] == '[':
-        depth = 1
-        i += 1
-        while i < len(s) and depth:
-            if s[i] == '[': depth += 1
-            elif s[i] == ']': depth -= 1
-            i += 1
-
+    skipNextLoop = True
     while i < len(s):
         if s[i] in '+-<>':
             i, pointer, diffs = parsePropagator(s, i)
-            if len(diffs):
-                ops[-1] = domain.join(ops[-1], domain.propagate(pointer, diffs))
-            elif pointer != 0:
-                ops[-1] = domain.join(ops[-1], domain.right(pointer))
-            # NB: else: ops[-1] = domain.join(ops[-1], domain.unit())
+            ops[-1] = domain.join(ops[-1], domain.propagate(pointer, diffs))
+            skipNextLoop = False
             continue
-        elif s[i] == ',': ops[-1] = domain.join(ops[-1], domain.input())
+        elif s[i] == ',':
+            ops[-1] = domain.join(ops[-1], domain.input())
+            skipNextLoop = False
         elif s[i] == '.': ops[-1] = domain.join(ops[-1], domain.output())
-        elif s[i] == '[': ops.append(domain.unit())
+        elif s[i] == '[':
+            if skipNextLoop:
+                i = skipLoop(s, i)
+                continue
+            else: ops.append(domain.unit())
         elif s[i] == ']':
             loop = domain.loop([ops.pop()])
             ops[-1] = domain.join(ops[-1], loop)
+            skipNextLoop = True
         i += 1
 
     return ops.pop()
