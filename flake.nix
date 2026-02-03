@@ -78,13 +78,21 @@
             # (pypy.*) which isn't available in RPython (rpython.*) or Py (py.*).
             # The latter packages are always available.
             usesPyPyCode ? false,
+            # Whether to use musl and statically link. This doesn't work for
+            # PyPy and is highly unlikely to work if you need any native
+            # libraries linked in; callers will need to use `pkgsStatic`
+            # themselves as appropriate. Almost certainly does not work on
+            # non-Linux; in particular, does not work on Darwin.
+            staticLink ? false,
           }: attrs: let
+            libffi = if staticLink then pkgs.pkgsStatic.libffi else pkgs.libffi;
             buildInputs = builtins.concatLists [
               (attrs.buildInputs or [])
-              ([ pkgs.libffi ])
+              ([ libffi ])
               (pkgs.lib.optionals pkgs.stdenv.isDarwin (with pkgs; [ libunwind Security ]))
             ];
-          in pkgs.stdenv.mkDerivation (attrs // {
+            stdenv = if staticLink then pkgs.pkgsStatic.stdenv else pkgs.stdenv;
+          in stdenv.mkDerivation (attrs // {
             # Ensure that RPython binaries don't have Python runtime dependencies.
             # disallowedReferences = [ py2 ];
             # To that end, don't automatically add references to Python modules!
@@ -101,7 +109,7 @@
             C_INCLUDE_PATH = pkgs.lib.makeSearchPathOutput "dev" "include" buildInputs;
             LIBRARY_PATH = pkgs.lib.makeLibraryPath buildInputs;
             LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath
-              (builtins.filter (x : x.outPath != pkgs.stdenv.cc.libc.outPath or "") buildInputs);
+              (builtins.filter (x : x.outPath != stdenv.cc.libc.outPath or "") buildInputs);
 
             # conftest patches are required to build without pytest.
             # sre patches are required to build without pypy/ src.
@@ -259,7 +267,27 @@
           entrypoint = "bf.py";
           binName = "bf-c";
           binInstallName = "bf";
-          # optLevel = "2";
+        } {
+          pname = "bf";
+          version = "2026";
+
+          src = ./bf;
+
+          postInstall = ''
+            mkdir -p $out/share/
+            cp ${bfShare}/benches/*.b $out/share/
+          '';
+
+          meta = {
+            description = "Brainfuck interpreter written in RPython";
+            license = pkgs.lib.licenses.mit;
+          };
+        };
+        bfStatic = mkRPythonDerivation {
+          entrypoint = "bf.py";
+          binName = "bf-c";
+          binInstallName = "bf";
+          staticLink = true;
         } {
           pname = "bf";
           version = "2026";
@@ -623,9 +651,8 @@
         lib = { inherit mkRPythonDerivation; };
         packages = rec {
           inherit r1brc biia bf dcpu16py divspl hippyvm icbink pixie plang
-            pycket pydgin pypy2 pypy3 pyrolog topaz;
-          # inherit r1brc biia bf dcpu16py divspl hippyvm icbink pixie plang
-          #   pycket pydgin pypy2 pypy3 pyrolog rsqueak topaz;
+            pycket pydgin pypy2 pypy3 pyrolog rsqueak topaz;
+          inherit bfStatic;
           inherit pydrofoil-arm pydrofoil-cheriot pydrofoil-riscv;
           inherit pysom-ast pysom-bc;
           # Export bootstrap PyPy. It is just as fast as standard PyPy, but

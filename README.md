@@ -85,6 +85,7 @@ optLevel | "jit" to build a JIT compiler, "2" to disable JIT | "jit"
 transFlags | Translator flags, e.g. stackless support | ""
 interpFlags | Interpreter flags, e.g. enabling builtin modules | ""
 usesPyPyCode | Whether translation depends on `pypy.*` modules | `false`
+staticLink | Whether to use musl libc and statically link (Linux only) | `false`
 
 Any patching can be done during `prePatch`. Any additional installation can be
 done during `postInstall`. Checks can be done during `installCheckPhase` by
