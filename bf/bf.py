@@ -157,9 +157,7 @@ class AsOps(object):
     def scalemove(self, i, s): return ZeroScaleAdd(i, s)
     def scalemove2(self, i, s, j, t): return ZeroScaleAdd2(i, s, j, t)
 
-# https://graphics.stanford.edu/~seander/bithacks.html#DetermineIfPowerOf2
-# Special case for i=1, whose orbit does include 0!
-def orbitReachesZero(i): return bool((abs(i) & 1) | (abs(i) & (abs(i) - 1)))
+def orbitReachesZero(i): return bool(abs(i) & 1)
 
 def makePeephole(cls):
     # Optimization domain is a tuple of: (underlying domain, adjust, diffs)
