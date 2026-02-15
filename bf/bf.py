@@ -20,6 +20,7 @@ ABS = Absolute(); REL = Relative()
 # https://esolangs.org/wiki/Algebraic_Brainfuck
 # v1: builtins, monoid, zero, move, move2, scalemove, scalemove2
 # v2: propagate
+# v3: scan
 class BF(object):
     def propagate(self, adjust, diffs): pass
     def unit(self): return self.propagate(0, {})
@@ -30,6 +31,7 @@ class BF(object):
     def input(self): pass
     def output(self): pass
     def zero(self): return self.propagate(0, {0: (ABS, 0)})
+    def scan(self, i): return self.loop([self.right(i)])
     def move(self, i): return self.scalemove(i, 1)
     def move2(self, i, j): return self.scalemove2(i, 1, j, 1)
     def scalemove(self, i, s):
@@ -96,6 +98,13 @@ class Propagate(Op):
             elif ty is REL: tape[position + k] += v
             else: assert False, "offsetting"
         return position + self.adjust
+class Scan(Op):
+    _immutable_ = True
+    _immutable_fields_ = "offset",
+    def __init__(self, offset): self.offset = offset
+    def runOn(self, tape, position):
+        while tape[position]: position += self.offset
+        return position
 class ZeroScaleAdd(Op):
     _immutable_ = True
     _immutable_fields_ = "offset", "scale"
@@ -154,6 +163,7 @@ class AsOps(object):
     def loop(self, bfs): return Loop(Seq(bfs))
     def input(self): return Input
     def output(self): return Output
+    def scan(self, i): return Scan(i)
     def scalemove(self, i, s): return ZeroScaleAdd(i, s)
     def scalemove2(self, i, s, j, t): return ZeroScaleAdd2(i, s, j, t)
 
@@ -191,7 +201,8 @@ def makePeephole(cls):
             # Loopish pattern recognition.
             if len(ts) == 1 and isProp(ts[0]):
                 bf, adjust, diffs = ts[0]
-                if adjust == 0 and 0 in diffs:
+                if len(diffs) == 0: return [(domain.scan(adjust), 0, None)]
+                elif adjust == 0 and 0 in diffs:
                     diffs = diffs.copy()
                     ty, v = diffs[0]
                     del diffs[0]
