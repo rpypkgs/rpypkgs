@@ -2,7 +2,7 @@
   description = "Packages built with RPython";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/release-23.05";
+    nixpkgs.url = "github:nixos/nixpkgs/release-25.11";
     flake-utils.url = "github:numtide/flake-utils";
     rpypkgs = {
       url = "github:rpypkgs/rpypkgs";
@@ -17,8 +17,11 @@
     let
       # The systems where RPython has been tested to work.
       testedSystems = [
-        "x86_64-linux"
         "aarch64-linux"
+        "armv7l-linux"
+        "i686-linux" 
+        "s390x-linux"
+        "x86_64-linux"
       ];
     in flake-utils.lib.eachSystem testedSystems (system:
       let
@@ -37,7 +40,7 @@
         } {
           # The package name and version.
           pname = "interp";
-          version = "2024";
+          version = "2026";
 
           # The base directory for the translation.
           src = ./interp;
