@@ -513,6 +513,26 @@
             license = pkgs.lib.licenses.mit;
           };
         };
+        rpylean = mkRPythonDerivation {
+          entrypoint = "targetrpylean.py";
+          binName = "rpylean-c";
+          usesPyPyCode = true;
+        } {
+          pname = "rpylean";
+          version = "2026.4.1";
+
+          src = pkgs.fetchFromGitHub {
+            owner = "Julian";
+            repo = "rpylean";
+            rev = "620889dedc0746ee859275445aacb2485830a5df";
+            sha256 = "sha256-cYAU7cZlpHgzOLv2d/SpY5y1rQ9kGVhy3lDkb+EQbfo=";
+          };
+
+          meta = {
+            description = "A Lean 4 type checker written in RPython";
+            license = pkgs.lib.licenses.mit;
+          };
+        };
 
         # Packages with multiple build-time configurations.
         mkPysom = flavor: let
@@ -651,7 +671,7 @@
         lib = { inherit mkRPythonDerivation; };
         packages = rec {
           inherit r1brc biia bf dcpu16py divspl hippyvm icbink pixie plang
-            pycket pydgin pypy2 pypy3 pyrolog rsqueak topaz;
+            pycket pydgin pypy2 pypy3 pyrolog rpylean rsqueak topaz;
           inherit bfStatic;
           inherit pydrofoil-arm pydrofoil-cheriot pydrofoil-riscv;
           inherit pysom-ast pysom-bc;
@@ -664,6 +684,7 @@
           packages = builtins.filter (p: !p.meta.broken) (with pkgs; [
             cachix nix-tree
             patchutils
+            rlwrap
             # pypy2Minimal
             # linuxPackages.perf gdb
           ]);

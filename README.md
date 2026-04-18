@@ -12,6 +12,7 @@ DCPU-16 | `dcpu16py`
 DIVSPL | `divspl`
 Kernel Lisp | `icbink`, `plang`
 Pixie Lisp | `pixie`
+Lean 4 | `rpylean`
 Prolog | `pyrolog`
 Python 2.7 | `pypy2`
 Python 3.10 | `pypy3`
