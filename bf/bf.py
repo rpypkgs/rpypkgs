@@ -69,6 +69,25 @@ class AsStr(object):
     def input(self): return ','
     def output(self): return '.'
 
+class AsDump(object):
+    import_from_mixin(BF)
+    def unit(self): return ""
+    def join(self, l, r): return l + r
+    def propagate(self, adjust, diffs):
+        pieces = []
+        ds = diffs.items()
+        KeySort(ds).sort()
+        for k, (ty, v) in ds:
+            t = ":=" if ty is ABS else "+"
+            pieces.append("%d %s %d" % (k, t, v))
+        return "propagate(%d, [%s])" % (adjust, ", ".join(pieces))
+    def zero(self): return "zero"
+    def plus(self, i): return "plus(%d)" % i
+    def right(self, i): return "right(%d)" % i
+    def loop(self, bfs): return "loop([" + ";".join(bfs) + "])"
+    def input(self): return "input"
+    def output(self): return "output"
+
 jitdriver = JitDriver(greens=['op'], reds=['position', 'tape'])
 
 class Op(object): _immutable_ = True
@@ -225,6 +244,7 @@ def makePeephole(cls):
     return Peephole, stripDomain
 
 AsStr, finishStr = makePeephole(AsStr)
+AsDump, finishDump = makePeephole(AsDump)
 AsOps, finishOps = makePeephole(AsOps)
 
 def parsePropagator(s, i):
@@ -292,11 +312,14 @@ def entryPoint(argv):
     if argv[1] == "-c":
         cells = int(argv[2])
         path = argv[3]
-    elif argv[1] == "-o": path = argv[2]
+    elif argv[1] in ["-o", "-d"]: path = argv[2]
     else: path = argv[1]
     with open(path) as handle: text = handle.read()
     if "-o" in argv:
         print ''.join(finishStr(parse(text, AsStr())))
+        return 0
+    elif "-d" in argv:
+        for s in finishDump(parse(text, AsDump())): print s
         return 0
     tape = bytearray("\x00" * cells)
     Seq(finishOps(parse(text, AsOps()))).runOn(tape, 0)
