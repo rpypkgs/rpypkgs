@@ -25,7 +25,7 @@ in rpyMaker {
 
     if [[ -f lib-python/3/tkinter/tix.py ]]; then
       substituteInPlace lib-python/3/tkinter/tix.py \
-        --replace "os.environ.get('TIX_LIBRARY')" "'${pkgs.tclPackages.tix}/lib'"
+        --replace "os.environ.get('TIX_LIBRARY')" "'${pkgs.tix}/lib'"
     fi
   '';
   patches = [
