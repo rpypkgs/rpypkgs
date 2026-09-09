@@ -26,6 +26,9 @@
         "aarch64-darwin"
         "powerpc64-linux" "powerpc64le-linux"
       ];
+      prebuiltSystems = {
+        "x86_64-linux" = /nix/store/gcwxr4nzap478dbcy1wl7mm0x2gbpr3m-minimal-pypy-bootstrap/on-server/pypy-bootstrap.tar.xz;
+      };
     in {
       templates.default = {
         path = ./template;
@@ -58,7 +61,7 @@
         };
 
         # Generic builder for RPython. Takes three levels of configuration.
-        mkRPythonMaker = { py2 }: let
+        mkRPythonMaker = { pkgs, py2 }: let
           maker = {
             # The Python module to start at, and the resulting binary name.
             entrypoint, binName,
@@ -156,6 +159,7 @@
 
         # Phase 1: Build PyPy for Python 2.7 using CPython.
         mkRPythonBootstrap = mkRPythonMaker {
+          inherit pkgs;
           py2 = "${cpython2}/bin/python";
         };
         mkPyPy = import ./make-pypy.nix;
@@ -169,11 +173,49 @@
           src = pypySrc;
         };
 
-        # pypy2Minimal = prebuilts.${system} or
-        pypy2Minimal = builtPypy2Minimal;
+        # Cribbed from pkgs/stdenv/linux/bootstrap-tools/glibc/unpack-bootstrap-tools.sh
+        unpack = tarball: pkgs.stdenv.mkDerivation {
+          name = "pypy-minimal-bootstrap";
+          buildCommand = ''
+            mkdir $out
+            echo "Unpacking the bootstrap tools..."
+            tar -C $out -xf ${tarball}
+
+            # if [ -f $out/lib/ld.so.? ]; then
+            #    # MIPS case
+            #    LD_BINARY=($out/lib/ld.so.?)
+            # elif [ -f $out/lib/ld64.so.? ]; then
+            #    # ppc64(le)
+            #    LD_BINARY=($out/lib/ld64.so.?)
+            # else
+            #    # i686, x86_64 and armv5tel
+            #    LD_BINARY=($out/lib/ld-*so.?)
+            # fi
+            LD_BINARY=($out/lib/ld*so*)
+
+            echo "patching pypy-c"
+            patchelf --debug --set-interpreter $LD_BINARY --set-rpath $out/lib --force-rpath $out/pypy-c/pypy-c
+
+            for i in $out/lib/librt*.so* $out/lib/libpypy-c.so; do
+              if [ -L "$i" ]; then continue; fi
+              echo "patching $i"
+              patchelf --debug --set-rpath $out/lib --force-rpath "$i"
+            done
+          '';
+        };
+
+        pypy2Minimal = if builtins.hasAttr system prebuiltSystems
+          then unpack prebuiltSystems.${system}
+          else builtPypy2Minimal;
+        # NB: those who nix-build bootballs presumably want to regenerate them
+        # rather than merely recycle the tarballs!
+        bootball = pkgs.callPackage ./bootball.nix {
+          pypy = builtPypy2Minimal;
+        };
 
         # Phase 2: Build everything else using PyPy.
         mkRPythonDerivation = mkRPythonMaker {
+          inherit pkgs;
           py2 = "${pypy2Minimal}/bin/pypy";
         };
 
@@ -677,7 +719,7 @@
           inherit pysom-ast pysom-bc;
           # Export bootstrap PyPy. It is just as fast as standard PyPy, but
           # missing some parts of the stdlib.
-          inherit pypy2Minimal;
+          inherit pypy2Minimal bootball;
           pysom = pysom-bc;
         };
         devShells.default = pkgs.mkShell {
