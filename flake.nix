@@ -27,6 +27,8 @@
         "powerpc64-linux" "powerpc64le-linux"
       ];
       prebuiltSystems = {
+        "aarch64-linux" = /nix/store/glfbdca2x8swwv6cncvblrv9iw0g1bz1-minimal-pypy-bootstrap/on-server/pypy-bootstrap.tar.xz;
+        "i686-linux" = /nix/store/6mb7nah3h3l6g3qz3kwmlfswwpq8dba1-minimal-pypy-bootstrap/on-server/pypy-bootstrap.tar.xz;
         "x86_64-linux" = /nix/store/gcwxr4nzap478dbcy1wl7mm0x2gbpr3m-minimal-pypy-bootstrap/on-server/pypy-bootstrap.tar.xz;
       };
     in {
