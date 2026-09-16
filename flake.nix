@@ -31,7 +31,10 @@
           url = "https://s3.us-east-005.dream.io/rpypkgs-mirror/pypy-bootstrap-aarch64-linux.tar.xz";
           sha256 = "1w3v3pxsql6dhi604vimpbxfl9kwyxl5ir9472r4n3pjg6cy5nj2";
         };
-        # "i686-linux" = /nix/store/6mb7nah3h3l6g3qz3kwmlfswwpq8dba1-minimal-pypy-bootstrap/on-server/pypy-bootstrap.tar.xz;
+        "i686-linux" = builtins.fetchurl {
+          url = "https://s3.us-east-005.dream.io/rpypkgs-mirror/pypy-bootstrap-i686-linux.tar.xz";
+          sha256 = "1rmciagn9zvp8dqxwq5bd9pd642lm475aa8xqfk53q9f23g4mwd8";
+        };
         "x86_64-linux" = builtins.fetchurl {
           url = "https://s3.us-east-005.dream.io/rpypkgs-mirror/pypy-bootstrap-x86_64-linux.tar.xz";
           sha256 = "12c9498qbbvn5g3pvfxgank6sp4any7z4cj1nviq8ijg61b3jz0p";
@@ -64,8 +67,8 @@
         pypySrc = pkgs.fetchFromGitHub {
           owner = "pypy";
           repo = "pypy";
-          rev = "release-pypy2.7-v7.3.20";
-          sha256 = "sha256-W6bVE4oIwG6Eh/RD9kmZqG9WO+I//hg/UDz/9b8lxJs=";
+          rev = "release-pypy2.7-v7.3.23";
+          sha256 = "sha256-GyRyOBJk6LccajSpSBKivoPaPrOHkTNLewKi8adJBwM=";
         };
 
         # Generic builder for RPython. Takes three levels of configuration.

@@ -64,6 +64,7 @@ used by default; no CPython will be built. Prebuilt tarballs are provided for
 the following systems:
 
 * `aarch64-linux`
+* `i686-linux`
 * `x86_64-linux`
 
 A Cachix cache is available; it is in the public namespace, as
