@@ -59,6 +59,13 @@ to build a CPython for Python 2.7, then uses CPython to build PyPy for Python
 2.7 with minimal dependencies. This PyPy is then used to run RPython for all
 other builds.
 
+For some systems, prebuilt bootstrapped PyPy for Python 2.7 is available and
+used by default; no CPython will be built. Prebuilt tarballs are provided for
+the following systems:
+
+* `aarch64-linux`
+* `x86_64-linux`
+
 A Cachix cache is available; it is in the public namespace, as
 [`rpypkgs`](https://app.cachix.org/cache/rpypkgs). It is automatically
 populated on push by GitHub Actions.
@@ -103,6 +110,15 @@ The following libraries are available:
 * rsdl
 
 `rply` requires `appdirs`.
+
+## Maintenance Notes
+
+To build bootstrap tarballs, choose a `$TARGET` system and run:
+
+    $ nix build --system $TARGET .#bootball
+    $ scp $(readlink result)/on-server/pypy-bootstrap.tar.xz $STAGING:/tmp/pypy-bootstrap-$TARGET.tar.xz
+
+Then copy it to the bucket or other mirror.
 
 ## Contributions
 

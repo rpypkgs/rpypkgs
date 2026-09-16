@@ -27,9 +27,15 @@
         "powerpc64-linux" "powerpc64le-linux"
       ];
       prebuiltSystems = {
-        "aarch64-linux" = /nix/store/glfbdca2x8swwv6cncvblrv9iw0g1bz1-minimal-pypy-bootstrap/on-server/pypy-bootstrap.tar.xz;
-        "i686-linux" = /nix/store/6mb7nah3h3l6g3qz3kwmlfswwpq8dba1-minimal-pypy-bootstrap/on-server/pypy-bootstrap.tar.xz;
-        "x86_64-linux" = /nix/store/gcwxr4nzap478dbcy1wl7mm0x2gbpr3m-minimal-pypy-bootstrap/on-server/pypy-bootstrap.tar.xz;
+        "aarch64-linux" = builtins.fetchurl {
+          url = "https://s3.us-east-005.dream.io/rpypkgs-mirror/pypy-bootstrap-aarch64-linux.tar.xz";
+          sha256 = "1w3v3pxsql6dhi604vimpbxfl9kwyxl5ir9472r4n3pjg6cy5nj2";
+        };
+        # "i686-linux" = /nix/store/6mb7nah3h3l6g3qz3kwmlfswwpq8dba1-minimal-pypy-bootstrap/on-server/pypy-bootstrap.tar.xz;
+        "x86_64-linux" = builtins.fetchurl {
+          url = "https://s3.us-east-005.dream.io/rpypkgs-mirror/pypy-bootstrap-x86_64-linux.tar.xz";
+          sha256 = "12c9498qbbvn5g3pvfxgank6sp4any7z4cj1nviq8ijg61b3jz0p";
+        };
       };
     in {
       templates.default = {
