@@ -178,7 +178,7 @@
           inherit pkgs;
           rpyMaker = mkRPythonBootstrap;
           pyVersion = "2.7";
-          version = "7.3.20";
+          version = "7.3.23";
           binName = "pypy-c";
           minimal = true;
           src = pypySrc;
@@ -234,7 +234,7 @@
           inherit pkgs;
           rpyMaker = mkRPythonDerivation;
           pyVersion = "2.7";
-          version = "7.3.20";
+          version = "7.3.23";
           binName = "pypy-c";
           src = pypySrc;
         };
@@ -242,11 +242,11 @@
           inherit pkgs;
           rpyMaker = mkRPythonDerivation;
           pyVersion = "3.11";
-          version = "7.3.20";
+          version = "7.3.23";
           binName = "pypy3.11-c";
           src = pkgs.fetchurl {
             url = "https://downloads.python.org/pypy/pypy3.11-v${version}-src.tar.bz2";
-            hash = "sha256-d4bdp2AAPi6nQJwQN+UCAMV47EJ84CRaxM11hxCyBvs=";
+            hash = "sha256-8VycQeA/P37MJSKMbGdCe4kY8h7y1pQhWZSx+t4g9ps=";
           };
         };
 
