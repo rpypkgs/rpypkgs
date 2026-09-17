@@ -3,6 +3,7 @@
 {
   lib,
   fetchFromGitHub,
+  fetchpatch,
   buildDunePackage,
   base64,
   omd,
@@ -27,6 +28,14 @@ buildDunePackage rec {
     rev = version;
     sha256 = "sha256-1PTfpJxFNK9EBoVuuRZoALXDwGwEZJxcXxEuewMDDtc=";
   };
+
+  patches = [
+    # Compatibility with menhir ≥ 20220203
+    (fetchpatch {
+      url = "https://github.com/rems-project/sail/commit/446fb477c508853595ccc937ed60765aa685ae31.patch";
+      hash = "sha256-+j0USd0Ish11aYEzYLRiqkydhUPQoD9RPNjRhQcyX9c=";
+    })
+  ];
 
   minimalOCamlVersion = "4.08";
 
