@@ -29,7 +29,7 @@ in rpyMaker {
     fi
   '';
   patches = [
-    ./pypy/dont_fetch_vendored_deps.patch
+    (if py3k then ./pypy/dont_fetch_vendored_deps3.patch else ./pypy/dont_fetch_vendored_deps.patch)
   ] ++ pkgs.lib.optional (!minimal) [
     (pkgs.replaceVars ./pypy/tk_tcl_paths.patch {
       inherit (pkgs) tk tcl;

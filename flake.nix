@@ -230,13 +230,16 @@
           py2 = "${pypy2Minimal}/bin/pypy";
         };
 
-        pypy2 = mkPyPy {
+        pypy2 = mkPyPy rec {
           inherit pkgs;
           rpyMaker = mkRPythonDerivation;
           pyVersion = "2.7";
           version = "8.0.0";
           binName = "pypy-c";
-          src = pypySrc;
+          src = pkgs.fetchurl {
+            url = "https://downloads.python.org/pypy/pypy2.7-v${version}-src.tar.gz";
+            hash = "sha256-4qVrWHAUqXp+a9FK6ZtVJHzyk51noFoJ5irwr8FhJcs=";
+          };
         };
         pypy3 = mkPyPy rec {
           inherit pkgs;
